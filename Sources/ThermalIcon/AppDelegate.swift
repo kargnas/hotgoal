@@ -302,7 +302,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .number:
             statusItem.length = NSStatusItem.variableLength
             button.image = nil
-            button.title = "   " + String(format: "%.0f°", temperature)
+            // A thin space opens the icon gap without restoring the removed trailing padding.
+            button.title = "   \u{2009}" + String(format: "%.0f°", temperature)
             button.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
             button.imagePosition = .noImage
             trimCombinedStatusItemWidth(for: button)
