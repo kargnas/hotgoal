@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import ThermalIconCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -12,15 +13,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let menu = NSMenu()
     private let temperatureItem = NSMenuItem(title: "Reading CPU temperature…", action: nil, keyEquivalent: "")
+    private let fanStatusItem = NSMenuItem(title: "Reading fans…", action: nil, keyEquivalent: "")
     private let iconModeItem = NSMenuItem(title: "Icon", action: #selector(selectIconMode), keyEquivalent: "")
     private let numberModeItem = NSMenuItem(title: "Number", action: #selector(selectNumberMode), keyEquivalent: "")
+    private let automaticFanItem = NSMenuItem(title: "System Automatic", action: #selector(selectAutomaticFans), keyEquivalent: "")
+    private let helperActionItem = NSMenuItem(title: "Enable Fan Control…", action: #selector(handleHelperAction), keyEquivalent: "")
     private let reader: SMCReader?
+    private let helperManager = FanHelperServiceManager()
+    private let helperClient = FanHelperClient()
     private var timer: Timer?
     private var temperature: Double?
+    private var fans: [FanSnapshot] = []
+    private var hasControllerConflict = false
     private var displayMode: DisplayMode
     private var thresholds: TemperatureThresholds
     private var warmItems: [NSMenuItem] = []
     private var hotItems: [NSMenuItem] = []
+    private var boostItems: [NSMenuItem] = []
 
     override init() {
         let defaults = UserDefaults.standard
@@ -52,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         timer?.invalidate()
+        helperClient.disconnect()
     }
 
     func menuWillOpen(_ menu: NSMenu) {
@@ -70,8 +80,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         menu.autoenablesItems = false
         temperatureItem.isEnabled = false
+        fanStatusItem.isEnabled = false
         menu.addItem(temperatureItem)
+        menu.addItem(fanStatusItem)
         menu.addItem(.separator())
+
+        menu.addItem(makeFanControlMenu())
 
         let displayItem = NSMenuItem(title: "Display", action: nil, keyEquivalent: "")
         let displayMenu = NSMenu()
@@ -98,6 +112,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         quitItem.target = self
         menu.addItem(quitItem)
         updateChecks()
+    }
+
+    private func makeFanControlMenu() -> NSMenuItem {
+        let parent = NSMenuItem(title: "Fan Control", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        automaticFanItem.target = self
+        submenu.addItem(automaticFanItem)
+
+        boostItems = FanBoost.allCases.map { boost in
+            let item = NSMenuItem(title: boost.title, action: #selector(selectFanBoost), keyEquivalent: "")
+            item.target = self
+            item.tag = boost.rawValue
+            submenu.addItem(item)
+            return item
+        }
+
+        submenu.addItem(.separator())
+        helperActionItem.target = self
+        submenu.addItem(helperActionItem)
+        parent.submenu = submenu
+        return parent
     }
 
     private func makeWarmThresholdMenu() -> NSMenuItem {
@@ -130,7 +165,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func refresh() {
         temperature = reader?.cpuAverageTemperature()
+        if let reader {
+            fans = (try? reader.fanSnapshots()) ?? []
+        }
+        hasControllerConflict = !NSRunningApplication.runningApplications(
+            withBundleIdentifier: "com.crystalidea.macsfancontrol"
+        ).isEmpty
         updateStatusItem()
+        updateFanItems()
+    }
+
+    private func updateFanItems() {
+        if hasControllerConflict {
+            fanStatusItem.title = "Fans: controlled by Macs Fan Control"
+        } else if fans.isEmpty {
+            fanStatusItem.title = "Fans: unavailable"
+        } else {
+            let speeds = fans.map { "Fan \($0.index + 1) \($0.currentRPM) RPM" }.joined(separator: " · ")
+            fanStatusItem.title = speeds
+        }
+
+        let helperEnabled = helperManager.state == .enabled
+        let controlsEnabled = helperEnabled && !fans.isEmpty && !hasControllerConflict
+        automaticFanItem.isEnabled = controlsEnabled
+        boostItems.forEach { $0.isEnabled = controlsEnabled }
+        automaticFanItem.state = !fans.isEmpty && fans.allSatisfy { !$0.isManual } ? .on : .off
+
+        for item in boostItems {
+            guard let boost = FanBoost(rawValue: item.tag) else { continue }
+            let matches = !fans.isEmpty && fans.allSatisfy { fan in
+                guard fan.isManual, let target = fan.targetRPM else { return false }
+                let expected = boost.targetRPM(minimum: fan.minimumRPM, maximum: fan.maximumRPM)
+                return abs(target - expected) <= max(50, fan.maximumRPM / 50)
+            }
+            item.state = matches ? .on : .off
+        }
+
+        if hasControllerConflict {
+            helperActionItem.title = "Quit Macs Fan Control First"
+            helperActionItem.isEnabled = false
+            return
+        }
+
+        switch helperManager.state {
+        case .notRegistered:
+            helperActionItem.title = "Enable Fan Control…"
+            helperActionItem.isEnabled = true
+        case .requiresApproval:
+            helperActionItem.title = "Approve in System Settings…"
+            helperActionItem.isEnabled = true
+        case .enabled:
+            helperActionItem.title = "Fan Helper Enabled"
+            helperActionItem.isEnabled = false
+        case .notFound:
+            helperActionItem.title = "Fan Helper Missing"
+            helperActionItem.isEnabled = false
+        }
     }
 
     private func updateStatusItem() {
@@ -207,6 +297,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         UserDefaults.standard.set(thresholds.hot, forKey: DefaultsKey.hotThreshold)
         updateChecks()
         updateStatusItem()
+    }
+
+    @objc private func selectAutomaticFans() {
+        guard !hasControllerConflict else { return }
+        fanStatusItem.title = "Restoring automatic fan control…"
+        helperClient.restoreAutomatic { [weak self] result in
+            self?.finishFanCommand(result)
+        }
+    }
+
+    @objc private func selectFanBoost(_ sender: NSMenuItem) {
+        guard !hasControllerConflict else { return }
+        guard let boost = FanBoost(rawValue: sender.tag) else { return }
+        fanStatusItem.title = "Applying \(boost.title.lowercased())…"
+        helperClient.setBoost(boost) { [weak self] result in
+            self?.finishFanCommand(result)
+        }
+    }
+
+    @objc private func handleHelperAction() {
+        switch helperManager.state {
+        case .notRegistered:
+            do {
+                try helperManager.register()
+                if helperManager.state == .requiresApproval {
+                    helperManager.openApprovalSettings()
+                }
+            } catch {
+                if helperManager.state == .requiresApproval {
+                    helperManager.openApprovalSettings()
+                } else {
+                    showError(error.localizedDescription)
+                }
+            }
+        case .requiresApproval:
+            helperManager.openApprovalSettings()
+        case .enabled, .notFound:
+            break
+        }
+        updateFanItems()
+    }
+
+    private func finishFanCommand(_ result: Result<Void, Error>) {
+        switch result {
+        case .success:
+            refresh()
+        case let .failure(error):
+            refresh()
+            showError(error.localizedDescription)
+        }
+    }
+
+    private func showError(_ message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Fan Control Failed"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     @objc private func quit() {

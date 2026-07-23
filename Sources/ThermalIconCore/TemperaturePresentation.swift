@@ -1,31 +1,31 @@
 import Foundation
 
-enum DisplayMode: String {
+public enum DisplayMode: String {
     case icon
     case number
 }
 
-struct TemperatureThresholds: Equatable {
-    static let defaultWarm = 55.0
-    static let defaultHot = 80.0
-    static let warmChoices = [50.0, 55.0, 60.0, 65.0]
-    static let hotChoices = [70.0, 75.0, 80.0, 85.0, 90.0]
+public struct TemperatureThresholds: Equatable {
+    public static let defaultWarm = 55.0
+    public static let defaultHot = 80.0
+    public static let warmChoices = [50.0, 55.0, 60.0, 65.0]
+    public static let hotChoices = [70.0, 75.0, 80.0, 85.0, 90.0]
 
-    let warm: Double
-    let hot: Double
+    public let warm: Double
+    public let hot: Double
 
-    init(warm: Double, hot: Double) {
+    public init(warm: Double, hot: Double) {
         self.warm = Self.warmChoices.contains(warm) ? warm : Self.defaultWarm
         self.hot = Self.hotChoices.contains(hot) ? hot : Self.defaultHot
     }
 }
 
-enum TemperatureBand: Equatable {
+public enum TemperatureBand: Equatable {
     case cool
     case warm
     case hot
 
-    static func classify(_ celsius: Double, thresholds: TemperatureThresholds) -> Self {
+    public static func classify(_ celsius: Double, thresholds: TemperatureThresholds) -> Self {
         if celsius >= thresholds.hot {
             return .hot
         }
@@ -35,7 +35,7 @@ enum TemperatureBand: Equatable {
         return .cool
     }
 
-    var symbolName: String {
+    public var symbolName: String {
         switch self {
         case .cool: "thermometer.low"
         case .warm: "thermometer.medium"
@@ -43,7 +43,7 @@ enum TemperatureBand: Equatable {
         }
     }
 
-    var label: String {
+    public var label: String {
         switch self {
         case .cool: "Cool"
         case .warm: "Warm"

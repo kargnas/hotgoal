@@ -9,9 +9,25 @@ let package = Package(
     ],
     products: [
         .executable(name: "ThermalIcon", targets: ["ThermalIcon"]),
+        .executable(name: "ThermalIconFanHelper", targets: ["ThermalIconFanHelper"]),
     ],
     targets: [
-        .executableTarget(name: "ThermalIcon"),
-        .testTarget(name: "ThermalIconTests", dependencies: ["ThermalIcon"]),
+        .target(
+            name: "ThermalIconCore",
+            linkerSettings: [
+                .linkedFramework("IOKit"),
+                .linkedFramework("Security"),
+            ]
+        ),
+        .executableTarget(
+            name: "ThermalIcon",
+            dependencies: ["ThermalIconCore"],
+            linkerSettings: [.linkedFramework("ServiceManagement")]
+        ),
+        .executableTarget(
+            name: "ThermalIconFanHelper",
+            dependencies: ["ThermalIconCore"]
+        ),
+        .testTarget(name: "ThermalIconTests", dependencies: ["ThermalIconCore"]),
     ]
 )
