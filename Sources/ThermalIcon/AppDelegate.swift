@@ -16,7 +16,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let fanStatusItem = NSMenuItem(title: "Reading fans…", action: nil, keyEquivalent: "")
     private let iconModeItem = NSMenuItem(title: "Icon", action: #selector(selectIconMode), keyEquivalent: "")
     private let numberModeItem = NSMenuItem(title: "Number", action: #selector(selectNumberMode), keyEquivalent: "")
-    private let automaticFanItem = NSMenuItem(title: "System Automatic", action: #selector(selectAutomaticFans), keyEquivalent: "")
     private let helperActionItem = NSMenuItem(title: "Enable Fan Control…", action: #selector(handleHelperAction), keyEquivalent: "")
     private let reader: SMCReader?
     private let helperManager = FanHelperServiceManager()
@@ -29,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var thresholds: TemperatureThresholds
     private var warmItems: [NSMenuItem] = []
     private var hotItems: [NSMenuItem] = []
-    private var boostItems: [NSMenuItem] = []
+    private var fanModeItems: [FanControlMode: NSMenuItem] = [:]
 
     override init() {
         let defaults = UserDefaults.standard
@@ -117,15 +116,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func makeFanControlMenu() -> NSMenuItem {
         let parent = NSMenuItem(title: "Fan Control", action: nil, keyEquivalent: "")
         let submenu = NSMenu()
-        automaticFanItem.target = self
-        submenu.addItem(automaticFanItem)
-
-        boostItems = FanBoost.allCases.map { boost in
-            let item = NSMenuItem(title: boost.title, action: #selector(selectFanBoost), keyEquivalent: "")
+        for mode in FanControlMode.allCases {
+            let item = NSMenuItem(title: mode.title, action: #selector(selectFanMode), keyEquivalent: "")
             item.target = self
-            item.tag = boost.rawValue
+            item.representedObject = mode.rawValue
             submenu.addItem(item)
-            return item
+            fanModeItems[mode] = item
         }
 
         submenu.addItem(.separator())
@@ -187,18 +183,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let helperEnabled = helperManager.state == .enabled
         let controlsEnabled = helperEnabled && !fans.isEmpty && !hasControllerConflict
-        automaticFanItem.isEnabled = controlsEnabled
-        boostItems.forEach { $0.isEnabled = controlsEnabled }
-        automaticFanItem.state = !fans.isEmpty && fans.allSatisfy { !$0.isManual } ? .on : .off
-
-        for item in boostItems {
-            guard let boost = FanBoost(rawValue: item.tag) else { continue }
-            let matches = !fans.isEmpty && fans.allSatisfy { fan in
-                guard fan.isManual, let target = fan.targetRPM else { return false }
-                let expected = boost.targetRPM(minimum: fan.minimumRPM, maximum: fan.maximumRPM)
-                return abs(target - expected) <= max(50, fan.maximumRPM / 50)
-            }
-            item.state = matches ? .on : .off
+        for (mode, item) in fanModeItems {
+            item.isEnabled = controlsEnabled
+            item.state = inferredFanMode == mode ? .on : .off
         }
 
         if hasControllerConflict {
@@ -255,6 +242,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    private var inferredFanMode: FanControlMode? {
+        guard !fans.isEmpty else { return nil }
+        if fans.allSatisfy({ !$0.isManual }) { return .standard }
+        guard fans.allSatisfy(\.isManual) else { return nil }
+
+        let isUltra = fans.allSatisfy { fan in
+            guard let target = fan.targetRPM else { return false }
+            return abs(target - fan.maximumRPM) <= max(50, fan.maximumRPM / 50)
+        }
+        return isUltra ? .ultra : .quiet
+    }
+
     private func symbol(named name: String) -> NSImage? {
         let configuration = NSImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
         let image = NSImage(systemSymbolName: name, accessibilityDescription: "CPU temperature")?
@@ -286,32 +285,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func selectWarmThreshold(_ sender: NSMenuItem) {
+        let shouldRefreshQuietMode = inferredFanMode == .quiet && !hasControllerConflict
         thresholds = TemperatureThresholds(warm: Double(sender.tag), hot: thresholds.hot)
         UserDefaults.standard.set(thresholds.warm, forKey: DefaultsKey.warmThreshold)
         updateChecks()
         updateStatusItem()
+        if shouldRefreshQuietMode { applyFanMode(.quiet) }
     }
 
     @objc private func selectHotThreshold(_ sender: NSMenuItem) {
+        let shouldRefreshQuietMode = inferredFanMode == .quiet && !hasControllerConflict
         thresholds = TemperatureThresholds(warm: thresholds.warm, hot: Double(sender.tag))
         UserDefaults.standard.set(thresholds.hot, forKey: DefaultsKey.hotThreshold)
         updateChecks()
         updateStatusItem()
+        if shouldRefreshQuietMode { applyFanMode(.quiet) }
     }
 
-    @objc private func selectAutomaticFans() {
+    @objc private func selectFanMode(_ sender: NSMenuItem) {
         guard !hasControllerConflict else { return }
-        fanStatusItem.title = "Restoring automatic fan control…"
-        helperClient.restoreAutomatic { [weak self] result in
-            self?.finishFanCommand(result)
-        }
+        guard let rawMode = sender.representedObject as? String,
+              let mode = FanControlMode(rawValue: rawMode) else { return }
+        applyFanMode(mode)
     }
 
-    @objc private func selectFanBoost(_ sender: NSMenuItem) {
-        guard !hasControllerConflict else { return }
-        guard let boost = FanBoost(rawValue: sender.tag) else { return }
-        fanStatusItem.title = "Applying \(boost.title.lowercased())…"
-        helperClient.setBoost(boost) { [weak self] result in
+    private func applyFanMode(_ mode: FanControlMode) {
+        fanStatusItem.title = "Applying \(mode.title)…"
+        helperClient.setMode(mode, thresholds: thresholds) { [weak self] result in
             self?.finishFanCommand(result)
         }
     }

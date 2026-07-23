@@ -37,9 +37,18 @@ final class FanHelperClient {
         }
     }
 
-    func setBoost(_ boost: FanBoost, completion: @escaping (Result<Void, Error>) -> Void) {
+    func setMode(
+        _ mode: FanControlMode,
+        thresholds: TemperatureThresholds,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
         perform(completion: completion) { proxy, reply in
-            proxy.setBoost(percent: boost.rawValue, reply: reply)
+            proxy.setMode(
+                mode: mode.rawValue,
+                warmThreshold: thresholds.warm,
+                hotThreshold: thresholds.hot,
+                reply: reply
+            )
         }
     }
 

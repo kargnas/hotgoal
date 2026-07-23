@@ -18,10 +18,30 @@ final class TemperaturePresentationTests: XCTestCase {
         )
     }
 
-    func testFanBoostTargetsStayInsideHardwareRange() {
-        XCTAssertEqual(FanBoost.seventy.targetRPM(minimum: 1_500, maximum: 6_000), 4_200)
-        XCTAssertEqual(FanBoost.eightyFive.targetRPM(minimum: 5_500, maximum: 6_000), 5_500)
-        XCTAssertEqual(FanBoost.maximum.targetRPM(minimum: 1_500, maximum: 6_000), 6_000)
+    func testQuietCurveRampsFromThirtyPercentToMaximum() {
+        let thresholds = TemperatureThresholds(warm: 55, hot: 80)
+
+        XCTAssertEqual(QuietFanCurve.percentage(celsius: 50, thresholds: thresholds), 30)
+        XCTAssertEqual(QuietFanCurve.percentage(celsius: 67.5, thresholds: thresholds), 50)
+        XCTAssertEqual(QuietFanCurve.percentage(celsius: 80, thresholds: thresholds), 70)
+        XCTAssertEqual(QuietFanCurve.percentage(celsius: 90, thresholds: thresholds), 100)
+    }
+
+    func testQuietCurveTargetsStayInsideHardwareRange() {
+        let thresholds = TemperatureThresholds(warm: 55, hot: 80)
+
+        XCTAssertEqual(
+            QuietFanCurve.targetRPM(celsius: 20, minimum: 1_500, maximum: 6_000, thresholds: thresholds),
+            1_800
+        )
+        XCTAssertEqual(
+            QuietFanCurve.targetRPM(celsius: 20, minimum: 5_500, maximum: 6_000, thresholds: thresholds),
+            5_500
+        )
+        XCTAssertEqual(
+            QuietFanCurve.targetRPM(celsius: 95, minimum: 1_500, maximum: 6_000, thresholds: thresholds),
+            6_000
+        )
     }
 
     func testFanSnapshotValidationRejectsUnsafeRanges() {

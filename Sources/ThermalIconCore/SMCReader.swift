@@ -11,7 +11,9 @@ public final class SMCReader {
         case smc(UInt8)
         case invalidKey(String)
         case invalidFan
-        case invalidBoost
+        case invalidPercentage
+        case invalidMode
+        case temperatureUnavailable
         case rootRequired
         case unsupportedValueType(String)
         case restoreFailed
@@ -23,7 +25,9 @@ public final class SMCReader {
             case let .smc(code): "AppleSMC firmware error 0x\(String(code, radix: 16))"
             case let .invalidKey(key): "Invalid SMC key: \(key)"
             case .invalidFan: "Invalid or unavailable fan"
-            case .invalidBoost: "Unsupported fan boost"
+            case .invalidPercentage: "Fan percentage must be between 30 and 100"
+            case .invalidMode: "Unsupported fan control mode"
+            case .temperatureUnavailable: "CPU temperature is unavailable"
             case .rootRequired: "Fan control requires root privileges"
             case let .unsupportedValueType(type): "Unsupported SMC value type: \(type)"
             case .restoreFailed: "Failed to restore automatic fan control"
@@ -173,16 +177,21 @@ public final class SMCReader {
         }
     }
 
-    public func setBoost(_ boost: FanBoost) throws {
+    public func setFanPercentage(_ percentage: Int) throws {
         guard geteuid() == 0 else { throw ReaderError.rootRequired }
+        guard (30...100).contains(percentage) else { throw ReaderError.invalidPercentage }
         let fans = try fanSnapshots()
         guard !fans.isEmpty else { throw ReaderError.invalidFan }
 
         do {
             for fan in fans {
+                let target = min(
+                    max(Int((Double(fan.maximumRPM) * Double(percentage) / 100).rounded()), fan.minimumRPM),
+                    fan.maximumRPM
+                )
                 try setFanSpeed(
                     index: fan.index,
-                    rpm: boost.targetRPM(minimum: fan.minimumRPM, maximum: fan.maximumRPM)
+                    rpm: target
                 )
             }
         } catch {

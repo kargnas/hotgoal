@@ -7,8 +7,14 @@ Tiny macOS menu-bar app that represents current CPU temperature with an icon ins
 - optional numeric menu-bar mode
 - configurable warm/hot thresholds
 - live fan RPM monitoring
-- signed privileged helper for System Automatic, 70%, 85%, and 100% fan boost
+- signed privileged helper with Quiet, Standard, and Ultra modes
 - automatic fan reset when the app disconnects or the helper stops
+
+Fan modes:
+
+- **Quiet** — temperature-aware curve from 30%, rising to 100% by 90 °C
+- **Standard** — restores Apple's automatic fan control
+- **Ultra** — fixed 100% fan speed
 
 ## Run
 
@@ -24,7 +30,7 @@ Fan control setup:
 2. Choose **Fan Control → Enable Fan Control…**.
 3. Approve **Thermal Icon.app** in **System Settings → General → Login Items & Extensions**.
 
-The build script signs the app and helper with the first available Developer ID Application or Apple Development identity. Fan writes are restricted to safe boost presets; arbitrary low RPM values are intentionally unsupported.
+The build script signs the app and helper with the first available Developer ID Application or Apple Development identity. Fan writes are restricted to the three modes; arbitrary RPM values are intentionally unsupported. The warm/hot thresholds calibrate Quiet mode, while 90 °C always forces maximum speed.
 
 Requires macOS 14 or later. CPU sensor mappings cover common Intel Macs and Apple M1–M5 generations.
 

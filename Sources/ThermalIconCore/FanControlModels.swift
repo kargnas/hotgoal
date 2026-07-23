@@ -41,17 +41,47 @@ public struct FanSnapshot: Codable, Equatable, Sendable {
     public var isManual: Bool { mode == 1 }
 }
 
-public enum FanBoost: Int, CaseIterable, Codable, Sendable {
-    case seventy = 70
-    case eightyFive = 85
-    case maximum = 100
-
-    public func targetRPM(minimum: Int, maximum: Int) -> Int {
-        min(max(Int((Double(maximum) * Double(rawValue) / 100).rounded()), minimum), maximum)
-    }
+public enum FanControlMode: String, CaseIterable, Codable, Sendable {
+    case quiet
+    case standard
+    case ultra
 
     public var title: String {
-        rawValue == 100 ? "Maximum" : "Boost \(rawValue)%"
+        rawValue.capitalized
+    }
+}
+
+public enum QuietFanCurve {
+    public static func percentage(celsius: Double, thresholds: TemperatureThresholds) -> Int {
+        guard celsius.isFinite else { return 100 }
+        if celsius <= thresholds.warm { return 30 }
+        if celsius >= 90 { return 100 }
+
+        if thresholds.hot >= 90 {
+            let span = 90 - thresholds.warm
+            guard span > 0 else { return 100 }
+            return Int((30 + 70 * (celsius - thresholds.warm) / span).rounded())
+        }
+
+        if celsius < thresholds.hot {
+            let span = thresholds.hot - thresholds.warm
+            guard span > 0 else { return 70 }
+            return Int((30 + 40 * (celsius - thresholds.warm) / span).rounded())
+        }
+
+        let span = 90 - thresholds.hot
+        guard span > 0 else { return 100 }
+        return Int((70 + 30 * (celsius - thresholds.hot) / span).rounded())
+    }
+
+    public static func targetRPM(
+        celsius: Double,
+        minimum: Int,
+        maximum: Int,
+        thresholds: TemperatureThresholds
+    ) -> Int {
+        let percent = percentage(celsius: celsius, thresholds: thresholds)
+        return min(max(Int((Double(maximum) * Double(percent) / 100).rounded()), minimum), maximum)
     }
 }
 
@@ -75,6 +105,11 @@ public enum FanPayloadError: Error, Equatable, Sendable {
 
 @objc public protocol FanHelperProtocol {
     func getFanStatus(reply: @escaping (Data?, String?) -> Void)
-    func setBoost(percent: Int, reply: @escaping (Bool, String?) -> Void)
+    func setMode(
+        mode: String,
+        warmThreshold: Double,
+        hotThreshold: Double,
+        reply: @escaping (Bool, String?) -> Void
+    )
     func restoreAutomatic(reply: @escaping (Bool, String?) -> Void)
 }
