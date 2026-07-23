@@ -6,7 +6,7 @@ final class TemperaturePresentationTests: XCTestCase {
         var smoother = TemperatureSmoother()
 
         XCTAssertEqual(smoother.update(72)!, 72, accuracy: 0.001)
-        XCTAssertEqual(smoother.update(82)!, 74.5, accuracy: 0.001)
+        XCTAssertEqual(smoother.update(82)!, 73, accuracy: 0.001)
         XCTAssertNil(smoother.update(nil))
         XCTAssertEqual(smoother.update(80)!, 80, accuracy: 0.001)
     }

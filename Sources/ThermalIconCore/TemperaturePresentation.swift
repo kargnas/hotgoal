@@ -15,7 +15,7 @@ public struct TemperatureSmoother: Sendable {
             value = nil
             return nil
         }
-        value = value.map { $0 + (sample - $0) * 0.25 } ?? sample
+        value = value.map { $0 + (sample - $0) * 0.1 } ?? sample
         return value
     }
 }
