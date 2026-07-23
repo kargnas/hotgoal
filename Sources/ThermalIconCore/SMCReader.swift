@@ -183,16 +183,29 @@ public final class SMCReader {
         let fans = try fanSnapshots()
         guard !fans.isEmpty else { throw ReaderError.invalidFan }
 
+        let targets = fans.map { fan in
+            min(
+                max(Int((Double(fan.maximumRPM) * Double(percentage) / 100).rounded()), fan.minimumRPM),
+                fan.maximumRPM
+            )
+        }
+        try applyFanTargets(targets, to: fans)
+    }
+
+    public func setFanTargets(_ targets: [Int]) throws {
+        guard geteuid() == 0 else { throw ReaderError.rootRequired }
+        let fans = try fanSnapshots()
+        guard !fans.isEmpty, targets.count == fans.count else { throw ReaderError.invalidFan }
+        try applyFanTargets(targets, to: fans)
+    }
+
+    private func applyFanTargets(_ targets: [Int], to fans: [FanSnapshot]) throws {
+        guard zip(fans, targets).allSatisfy({ $0.minimumRPM...$0.maximumRPM ~= $1 }) else {
+            throw ReaderError.invalidFan
+        }
         do {
-            for fan in fans {
-                let target = min(
-                    max(Int((Double(fan.maximumRPM) * Double(percentage) / 100).rounded()), fan.minimumRPM),
-                    fan.maximumRPM
-                )
-                try setFanSpeed(
-                    index: fan.index,
-                    rpm: target
-                )
+            for (fan, target) in zip(fans, targets) {
+                try setFanSpeed(index: fan.index, rpm: target)
             }
         } catch {
             try? restoreAutomaticInternal(fanCount: fans.count)

@@ -5,10 +5,10 @@ import ThermalIconCore
 private final class FanService: @unchecked Sendable {
     private let reader: SMCReader
     private let lock = NSRecursiveLock()
-    private let timerQueue = DispatchQueue(label: "as.kargn.ThermalIcon.FanHelper.quiet")
-    private var quietTimer: DispatchSourceTimer?
-    private var activeMode = FanControlMode.standard
-    private var quietThresholds = TemperatureThresholds(
+    private let timerQueue = DispatchQueue(label: "as.kargn.ThermalIcon.FanHelper.temperature-control")
+    private var controlTimer: DispatchSourceTimer?
+    private var activeMode: FanControlMode?
+    private var controlThresholds = TemperatureThresholds(
         warm: TemperatureThresholds.defaultWarm,
         hot: TemperatureThresholds.defaultHot
     )
@@ -42,79 +42,98 @@ private final class FanService: @unchecked Sendable {
     }
 
     private func applyModeLocked(_ mode: FanControlMode, thresholds: TemperatureThresholds) throws {
-        cancelQuietTimerLocked()
+        activeMode = nil
+        cancelControlTimerLocked()
 
         switch mode {
-        case .standard:
-            activeMode = .standard
-            try reader.restoreAutomatic()
         case .ultra:
             do {
                 try reader.setFanPercentage(100)
                 activeMode = .ultra
             } catch {
-                activeMode = .standard
+                activeMode = nil
                 try? reader.restoreAutomatic()
                 throw error
             }
-        case .quiet:
-            activeMode = .quiet
-            quietThresholds = thresholds
+        case .quiet, .standard:
+            activeMode = mode
+            controlThresholds = thresholds
             do {
-                try refreshQuietLocked()
-                startQuietTimerLocked()
+                try refreshTemperatureControlLocked(mode: mode)
+                startControlTimerLocked()
             } catch {
-                activeMode = .standard
+                activeMode = nil
                 try? reader.restoreAutomatic()
                 throw error
             }
         }
     }
 
-    private func refreshQuiet() {
+    private func refreshTemperatureControl() {
         locked {
-            guard activeMode == .quiet else { return }
+            guard let mode = activeMode, mode != .ultra else { return }
             do {
-                try refreshQuietLocked()
+                try refreshTemperatureControlLocked(mode: mode)
             } catch {
-                NSLog("ThermalIconFanHelper Quiet mode failed: \(error)")
-                activeMode = .standard
-                cancelQuietTimerLocked()
+                NSLog("ThermalIconFanHelper temperature control failed: \(error)")
+                activeMode = nil
+                cancelControlTimerLocked()
                 do {
                     try reader.restoreAutomatic()
                 } catch {
-                    NSLog("ThermalIconFanHelper Quiet reset failed: \(error)")
+                    NSLog("ThermalIconFanHelper automatic reset failed: \(error)")
                 }
             }
         }
     }
 
-    private func refreshQuietLocked() throws {
+    private func refreshTemperatureControlLocked(mode: FanControlMode) throws {
         guard let temperature = reader.cpuAverageTemperature(), temperature.isFinite else {
             throw SMCReader.ReaderError.temperatureUnavailable
         }
-        let percentage = QuietFanCurve.percentage(celsius: temperature, thresholds: quietThresholds)
-        try reader.setFanPercentage(percentage)
+        let fans = try reader.fanSnapshots()
+        guard !fans.isEmpty else { throw SMCReader.ReaderError.invalidFan }
+        let targets = fans.map { fan in
+            switch mode {
+            case .quiet:
+                QuietFanCurve.targetRPM(
+                    celsius: temperature,
+                    minimum: fan.minimumRPM,
+                    maximum: fan.maximumRPM,
+                    thresholds: controlThresholds
+                )
+            case .standard:
+                StandardFanCurve.targetRPM(
+                    celsius: temperature,
+                    minimum: fan.minimumRPM,
+                    maximum: fan.maximumRPM,
+                    thresholds: controlThresholds
+                )
+            case .ultra:
+                fan.maximumRPM
+            }
+        }
+        try reader.setFanTargets(targets)
     }
 
-    private func startQuietTimerLocked() {
+    private func startControlTimerLocked() {
         let timer = DispatchSource.makeTimerSource(queue: timerQueue)
         timer.schedule(deadline: .now() + 2, repeating: 2, leeway: .milliseconds(250))
         timer.setEventHandler { [weak self] in
-            self?.refreshQuiet()
+            self?.refreshTemperatureControl()
         }
-        quietTimer = timer
+        controlTimer = timer
         timer.resume()
     }
 
-    private func cancelQuietTimerLocked() {
-        quietTimer?.cancel()
-        quietTimer = nil
+    private func cancelControlTimerLocked() {
+        controlTimer?.cancel()
+        controlTimer = nil
     }
 
     private func restoreAutomaticLocked() throws {
-        cancelQuietTimerLocked()
-        activeMode = .standard
+        activeMode = nil
+        cancelControlTimerLocked()
         try reader.restoreAutomatic()
     }
 

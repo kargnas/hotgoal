@@ -2,9 +2,10 @@
 
 Tiny macOS menu-bar app that represents current CPU temperature with an icon instead of permanent digits.
 
-- `thermometer.low`, `thermometer.medium`, or `thermometer.high` in menu bar
+- compact thermometer icon in the menu bar
 - exact temperature in tooltip and menu
 - optional numeric menu-bar mode
+- temperature-colored Thermal Motes animation in icon mode
 - configurable warm/hot thresholds
 - live fan RPM monitoring
 - signed privileged helper with Quiet, Standard, and Ultra modes
@@ -12,8 +13,8 @@ Tiny macOS menu-bar app that represents current CPU temperature with an icon ins
 
 Fan modes:
 
-- **Quiet** — hardware-minimum speed through the hot threshold, rising to 100% by 90 °C
-- **Standard** — restores Apple's automatic fan control
+- **Quiet** — hardware-minimum speed through the hot threshold, rising to maximum by 90 °C
+- **Standard** — 1,800 RPM minimum through the hot threshold, rising to maximum by 90 °C
 - **Ultra** — fixed 100% fan speed
 
 ## Run
@@ -30,7 +31,9 @@ Fan control setup:
 2. Choose **Fan Control → Enable Fan Control…**.
 3. Approve **Thermal Icon.app** in **System Settings → General → Login Items & Extensions**.
 
-The build script signs the app and helper with the first available Developer ID Application or Apple Development identity. Fan writes are restricted to the three modes; arbitrary RPM values are intentionally unsupported. The hot threshold starts Quiet mode's ramp, while 90 °C always forces maximum speed.
+The build script signs the app and helper with the first available Developer ID Application or Apple Development identity. Fan writes are restricted to the three modes; arbitrary RPM values are intentionally unsupported. The hot threshold starts Quiet and Standard ramping, while 90 °C always forces maximum speed. Quitting the app or losing the helper connection restores Apple's automatic control.
+
+Icon colors are cyan for Cool, amber for Warm, and red for Hot. Warm shows two rising motes; Hot shows four faster motes. macOS Reduce Motion keeps the color and thermometer level while removing particle movement.
 
 Requires macOS 14 or later. CPU sensor mappings cover common Intel Macs and Apple M1–M5 generations.
 

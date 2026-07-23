@@ -69,8 +69,29 @@ public enum QuietFanCurve {
         thresholds: TemperatureThresholds
     ) -> Int {
         let percent = percentage(celsius: celsius, thresholds: thresholds)
-        return min(max(Int((Double(maximum) * Double(percent) / 100).rounded()), minimum), maximum)
+        return rampedTargetRPM(floor: minimum, maximum: maximum, percent: percent)
     }
+}
+
+public enum StandardFanCurve {
+    public static let minimumRPM = 1_800
+
+    public static func targetRPM(
+        celsius: Double,
+        minimum: Int,
+        maximum: Int,
+        thresholds: TemperatureThresholds
+    ) -> Int {
+        let floor = min(max(Self.minimumRPM, minimum), maximum)
+        let percent = QuietFanCurve.percentage(celsius: celsius, thresholds: thresholds)
+        return rampedTargetRPM(floor: floor, maximum: maximum, percent: percent)
+    }
+}
+
+private func rampedTargetRPM(floor: Int, maximum: Int, percent: Int) -> Int {
+    guard maximum > floor else { return maximum }
+    let target = Double(floor) + Double(maximum - floor) * Double(percent) / 100
+    return min(max(Int(target.rounded()), floor), maximum)
 }
 
 public enum FanPayloadCodec {

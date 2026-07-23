@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private let statusView = ThermalMotesStatusView()
     private let menu = NSMenu()
     private let temperatureItem = NSMenuItem(title: "Reading CPU temperature…", action: nil, keyEquivalent: "")
     private let fanStatusItem = NSMenuItem(title: "Reading fans…", action: nil, keyEquivalent: "")
@@ -29,6 +30,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var warmItems: [NSMenuItem] = []
     private var hotItems: [NSMenuItem] = []
     private var fanModeItems: [FanControlMode: NSMenuItem] = [:]
+    private var selectedFanMode: FanControlMode?
+    private var fanCommandInFlight = false
+    private var fanCommandGeneration = 0
+    private var startupStandardAttempted = false
 
     override init() {
         let defaults = UserDefaults.standard
@@ -49,6 +54,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        helperClient.connectionLostHandler = { [weak self] in
+            guard let self else { return }
+            fanCommandGeneration += 1
+            selectedFanMode = nil
+            fanCommandInFlight = false
+            startupStandardAttempted = false
+            updateFanItems()
+        }
         configureStatusItem()
         configureMenu()
         refresh()
@@ -72,6 +85,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.autosaveName = "ThermalIconMenuBarItem"
         button.imageScaling = .scaleProportionallyDown
         button.setAccessibilityLabel("CPU temperature")
+        statusView.frame = button.bounds
+        statusView.autoresizingMask = [.width, .height]
+        button.addSubview(statusView)
         statusItem.menu = menu
     }
 
@@ -164,11 +180,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let reader {
             fans = (try? reader.fanSnapshots()) ?? []
         }
-        hasControllerConflict = !NSRunningApplication.runningApplications(
+        let controllerConflict = !NSRunningApplication.runningApplications(
             withBundleIdentifier: "com.crystalidea.macsfancontrol"
         ).isEmpty
+        if controllerConflict && !hasControllerConflict {
+            fanCommandGeneration += 1
+            fanCommandInFlight = false
+            helperClient.disconnect()
+            selectedFanMode = nil
+            startupStandardAttempted = true
+        } else if !controllerConflict && hasControllerConflict {
+            startupStandardAttempted = false
+        }
+        hasControllerConflict = controllerConflict
+        if !fanCommandInFlight,
+           selectedFanMode != nil,
+           !fans.isEmpty,
+           fans.allSatisfy({ !$0.isManual }) {
+            selectedFanMode = nil
+        }
         updateStatusItem()
         updateFanItems()
+        applyStartupStandardIfReady()
     }
 
     private func updateFanItems() {
@@ -182,10 +215,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         let helperEnabled = helperManager.state == .enabled
-        let controlsEnabled = helperEnabled && !fans.isEmpty && !hasControllerConflict
+        let controlsEnabled = helperEnabled && !fans.isEmpty && !hasControllerConflict && !fanCommandInFlight
+        hotItems.forEach { $0.isEnabled = !fanCommandInFlight }
         for (mode, item) in fanModeItems {
             item.isEnabled = controlsEnabled
-            item.state = inferredFanMode == mode ? .on : .off
+            item.state = selectedFanMode == mode ? .on : .off
         }
 
         if hasControllerConflict {
@@ -215,8 +249,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let temperature else {
             temperatureItem.title = "CPU temperature unavailable"
             statusItem.length = displayMode == .icon ? NSStatusItem.squareLength : NSStatusItem.variableLength
+            statusView.update(band: nil)
+            statusView.isHidden = true
             button.title = displayMode == .number ? "--°" : ""
             button.image = displayMode == .icon ? symbol(named: "exclamationmark.triangle") : nil
+            button.imagePosition = displayMode == .icon ? .imageOnly : .noImage
+            button.toolTip = "CPU temperature unavailable"
             button.setAccessibilityValue("Unavailable")
             return
         }
@@ -231,27 +269,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .icon:
             statusItem.length = NSStatusItem.squareLength
             button.title = ""
-            button.image = symbol(named: band.symbolName)
-            button.imagePosition = .imageOnly
+            button.image = nil
+            statusView.isHidden = false
+            statusView.update(band: band)
         case .number:
             statusItem.length = NSStatusItem.variableLength
+            statusView.update(band: nil)
+            statusView.isHidden = true
             button.image = nil
             button.title = String(format: "%.0f°", temperature)
             button.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
             button.imagePosition = .noImage
         }
-    }
-
-    private var inferredFanMode: FanControlMode? {
-        guard !fans.isEmpty else { return nil }
-        if fans.allSatisfy({ !$0.isManual }) { return .standard }
-        guard fans.allSatisfy(\.isManual) else { return nil }
-
-        let isUltra = fans.allSatisfy { fan in
-            guard let target = fan.targetRPM else { return false }
-            return abs(target - fan.maximumRPM) <= max(50, fan.maximumRPM / 50)
-        }
-        return isUltra ? .ultra : .quiet
     }
 
     private func symbol(named name: String) -> NSImage? {
@@ -285,21 +314,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func selectWarmThreshold(_ sender: NSMenuItem) {
-        let shouldRefreshQuietMode = inferredFanMode == .quiet && !hasControllerConflict
         thresholds = TemperatureThresholds(warm: Double(sender.tag), hot: thresholds.hot)
         UserDefaults.standard.set(thresholds.warm, forKey: DefaultsKey.warmThreshold)
         updateChecks()
         updateStatusItem()
-        if shouldRefreshQuietMode { applyFanMode(.quiet) }
     }
 
     @objc private func selectHotThreshold(_ sender: NSMenuItem) {
-        let shouldRefreshQuietMode = inferredFanMode == .quiet && !hasControllerConflict
+        guard !fanCommandInFlight else { return }
+        let modeToRefresh = selectedFanMode
         thresholds = TemperatureThresholds(warm: thresholds.warm, hot: Double(sender.tag))
         UserDefaults.standard.set(thresholds.hot, forKey: DefaultsKey.hotThreshold)
         updateChecks()
         updateStatusItem()
-        if shouldRefreshQuietMode { applyFanMode(.quiet) }
+        if let modeToRefresh, modeToRefresh != .ultra { applyFanMode(modeToRefresh) }
     }
 
     @objc private func selectFanMode(_ sender: NSMenuItem) {
@@ -310,10 +338,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func applyFanMode(_ mode: FanControlMode) {
+        guard !hasControllerConflict,
+              helperManager.state == .enabled,
+              !fans.isEmpty,
+              !fanCommandInFlight else { return }
+        fanCommandInFlight = true
+        fanCommandGeneration += 1
+        let generation = fanCommandGeneration
         fanStatusItem.title = "Applying \(mode.title)…"
+        updateFanItems()
         helperClient.setMode(mode, thresholds: thresholds) { [weak self] result in
-            self?.finishFanCommand(result)
+            self?.finishFanCommand(result, mode: mode, generation: generation)
         }
+    }
+
+    private func applyStartupStandardIfReady() {
+        guard !startupStandardAttempted,
+              helperManager.state == .enabled,
+              !fans.isEmpty,
+              !hasControllerConflict else { return }
+        startupStandardAttempted = true
+        applyFanMode(.standard)
     }
 
     @objc private func handleHelperAction() {
@@ -339,11 +384,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateFanItems()
     }
 
-    private func finishFanCommand(_ result: Result<Void, Error>) {
+    private func finishFanCommand(
+        _ result: Result<Void, Error>,
+        mode: FanControlMode,
+        generation: Int
+    ) {
+        guard generation == fanCommandGeneration else { return }
+        fanCommandGeneration += 1
+        fanCommandInFlight = false
         switch result {
         case .success:
+            selectedFanMode = mode
             refresh()
         case let .failure(error):
+            selectedFanMode = nil
             refresh()
             showError(error.localizedDescription)
         }

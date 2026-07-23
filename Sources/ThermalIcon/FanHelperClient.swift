@@ -16,6 +16,7 @@ final class FanHelperClient {
     }
 
     private var connection: NSXPCConnection?
+    var connectionLostHandler: (() -> Void)?
 
     func getFanStatus(completion: @escaping (Result<[FanSnapshot], Error>) -> Void) {
         do {
@@ -59,6 +60,8 @@ final class FanHelperClient {
     }
 
     func disconnect() {
+        connection?.interruptionHandler = nil
+        connection?.invalidationHandler = nil
         connection?.invalidate()
         connection = nil
     }
@@ -111,8 +114,29 @@ final class FanHelperClient {
         )
         connection.remoteObjectInterface = NSXPCInterface(with: FanHelperProtocol.self)
         connection.setCodeSigningRequirement(requirement)
-        connection.activate()
+        connection.interruptionHandler = { [weak self, weak connection] in
+            guard let connection else { return }
+            DispatchQueue.main.async {
+                self?.handleConnectionLoss(connection)
+            }
+        }
+        connection.invalidationHandler = { [weak self, weak connection] in
+            guard let connection else { return }
+            DispatchQueue.main.async {
+                self?.handleConnectionLoss(connection)
+            }
+        }
         self.connection = connection
+        connection.activate()
         return connection
+    }
+
+    private func handleConnectionLoss(_ lostConnection: NSXPCConnection) {
+        guard connection === lostConnection else { return }
+        lostConnection.interruptionHandler = nil
+        lostConnection.invalidationHandler = nil
+        lostConnection.invalidate()
+        connection = nil
+        connectionLostHandler?()
     }
 }

@@ -9,7 +9,7 @@ public struct TemperatureThresholds: Equatable {
     public static let defaultWarm = 55.0
     public static let defaultHot = 80.0
     public static let warmChoices = [50.0, 55.0, 60.0, 65.0]
-    public static let hotChoices = [70.0, 75.0, 80.0, 85.0, 90.0]
+    public static let hotChoices = [70.0, 75.0, 80.0, 85.0]
 
     public let warm: Double
     public let hot: Double
@@ -35,14 +35,6 @@ public enum TemperatureBand: Equatable {
         return .cool
     }
 
-    public var symbolName: String {
-        switch self {
-        case .cool: "thermometer.low"
-        case .warm: "thermometer.medium"
-        case .hot: "thermometer.high"
-        }
-    }
-
     public var label: String {
         switch self {
         case .cool: "Cool"
@@ -50,4 +42,18 @@ public enum TemperatureBand: Equatable {
         case .hot: "Hot"
         }
     }
+
+    public var thermalMotes: ThermalMotesConfiguration {
+        switch self {
+        case .cool: ThermalMotesConfiguration(count: 0, cycleDuration: nil, mercuryTop: 11)
+        case .warm: ThermalMotesConfiguration(count: 2, cycleDuration: 2.2, mercuryTop: 15)
+        case .hot: ThermalMotesConfiguration(count: 4, cycleDuration: 1.2, mercuryTop: 18)
+        }
+    }
+}
+
+public struct ThermalMotesConfiguration: Equatable, Sendable {
+    public let count: Int
+    public let cycleDuration: TimeInterval?
+    public let mercuryTop: Double
 }
