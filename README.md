@@ -18,6 +18,8 @@ Fan modes:
 - **Standard** — 1,800 RPM minimum through the hot threshold, rising to maximum by 90 °C
 - **Ultra** — fixed 100% fan speed
 
+Quiet and Standard hold small 3 °C cooldown fluctuations and lower RPM more slowly than they raise it, preventing audible fan-speed hunting. The 90 °C maximum-speed rule bypasses this stabilization immediately.
+
 ## Run
 
 ```bash
@@ -40,4 +42,4 @@ Requires macOS 14 or later. CPU sensor mappings cover common Intel Macs and Appl
 
 ## License
 
-MIT. AppleSMC and signed-helper code is based on [Stats](https://github.com/exelban/stats) and [MacFanControl](https://github.com/achen4020/MacFanControl); see `THIRD_PARTY_NOTICES.md`.
+MIT. AppleSMC, signed-helper, and fan-stabilization code is based on [Stats](https://github.com/exelban/stats), [MacFanControl](https://github.com/achen4020/MacFanControl), and [smctl](https://github.com/leaperone/smctl); see `THIRD_PARTY_NOTICES.md`.

@@ -135,6 +135,23 @@ final class TemperaturePresentationTests: XCTestCase {
         )
     }
 
+    func testFanTargetStabilizerHoldsCoolingAndLimitsRpmChanges() {
+        var stabilizer = FanTargetStabilizer()
+
+        XCTAssertEqual(stabilizer.effectiveTemperature(for: 85), 85)
+        XCTAssertEqual(stabilizer.effectiveTemperature(for: 83), 85)
+        XCTAssertEqual(stabilizer.effectiveTemperature(for: 82.5), 85)
+        XCTAssertEqual(stabilizer.effectiveTemperature(for: 81.9), 81.9)
+
+        XCTAssertEqual(stabilizer.limitTargets([1_500, 1_500], at: 0), [1_500, 1_500])
+        XCTAssertEqual(stabilizer.limitTargets([4_000, 4_000], at: 2), [2_300, 2_300])
+        XCTAssertEqual(stabilizer.limitTargets([1_500, 1_500], at: 3), [2_120, 2_120])
+        XCTAssertEqual(
+            stabilizer.limitTargets([5_800, 5_800], at: 3.1, forceImmediate: true),
+            [5_800, 5_800]
+        )
+    }
+
     func testFanSnapshotValidationRejectsUnsafeRanges() {
         XCTAssertTrue(FanSnapshot(
             index: 0,

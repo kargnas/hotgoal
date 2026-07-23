@@ -8,6 +8,7 @@ private final class FanService: @unchecked Sendable {
     private let timerQueue = DispatchQueue(label: "as.kargn.ThermalIcon.FanHelper.temperature-control")
     private var controlTimer: DispatchSourceTimer?
     private var activeMode: FanControlMode?
+    private var targetStabilizer = FanTargetStabilizer()
     private var controlThresholds = TemperatureThresholds(
         warm: TemperatureThresholds.defaultWarm,
         hot: TemperatureThresholds.defaultHot
@@ -44,6 +45,7 @@ private final class FanService: @unchecked Sendable {
     private func applyModeLocked(_ mode: FanControlMode, thresholds: TemperatureThresholds) throws {
         activeMode = nil
         cancelControlTimerLocked()
+        targetStabilizer = FanTargetStabilizer()
 
         switch mode {
         case .muted:
@@ -107,22 +109,29 @@ private final class FanService: @unchecked Sendable {
         }
         let fans = try reader.fanSnapshots()
         guard !fans.isEmpty else { throw SMCReader.ReaderError.invalidFan }
-        let targets = fans.map { fan in
+        let effectiveTemperature = targetStabilizer.effectiveTemperature(for: temperature)
+        let requestedTargets = fans.map { fan in
             if mode == .quiet {
                 return QuietFanCurve.targetRPM(
-                    celsius: temperature,
+                    celsius: effectiveTemperature,
                     minimum: fan.minimumRPM,
                     maximum: fan.maximumRPM,
                     thresholds: controlThresholds
                 )
             }
             return StandardFanCurve.targetRPM(
-                celsius: temperature,
+                celsius: effectiveTemperature,
                 minimum: fan.minimumRPM,
                 maximum: fan.maximumRPM,
                 thresholds: controlThresholds
             )
         }
+        // At the 90 °C safety point, maximum fan speed must never wait for slew limiting.
+        let targets = targetStabilizer.limitTargets(
+            requestedTargets,
+            at: ProcessInfo.processInfo.systemUptime,
+            forceImmediate: temperature >= 90
+        )
         try reader.setFanTargets(targets)
     }
 
@@ -144,6 +153,7 @@ private final class FanService: @unchecked Sendable {
     private func restoreAutomaticLocked() throws {
         activeMode = nil
         cancelControlTimerLocked()
+        targetStabilizer = FanTargetStabilizer()
         try reader.restoreAutomatic()
     }
 
