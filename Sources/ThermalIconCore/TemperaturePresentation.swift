@@ -5,6 +5,21 @@ public enum DisplayMode: String {
     case number
 }
 
+public struct TemperatureSmoother: Sendable {
+    private var value: Double?
+
+    public init() {}
+
+    public mutating func update(_ sample: Double?) -> Double? {
+        guard let sample, sample.isFinite else {
+            value = nil
+            return nil
+        }
+        value = value.map { $0 + (sample - $0) * 0.25 } ?? sample
+        return value
+    }
+}
+
 public struct TemperatureThresholds: Equatable {
     public static let defaultWarm = 55.0
     public static let defaultHot = 80.0

@@ -2,6 +2,15 @@ import XCTest
 @testable import ThermalIconCore
 
 final class TemperaturePresentationTests: XCTestCase {
+    func testTemperatureSmootherDampsSpikesAndResetsAfterUnavailableReading() {
+        var smoother = TemperatureSmoother()
+
+        XCTAssertEqual(smoother.update(72)!, 72, accuracy: 0.001)
+        XCTAssertEqual(smoother.update(82)!, 74.5, accuracy: 0.001)
+        XCTAssertNil(smoother.update(nil))
+        XCTAssertEqual(smoother.update(80)!, 80, accuracy: 0.001)
+    }
+
     func testTemperatureBandsAtThresholdBoundaries() {
         let thresholds = TemperatureThresholds(warm: 55, hot: 80)
 

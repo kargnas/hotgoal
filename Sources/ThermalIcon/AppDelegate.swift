@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let helperClient = FanHelperClient()
     private var timer: Timer?
     private var temperature: Double?
+    private var temperatureSmoother = TemperatureSmoother()
     private var fans: [FanSnapshot] = []
     private var hasControllerConflict = false
     private var displayMode: DisplayMode
@@ -30,7 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var warmItems: [NSMenuItem] = []
     private var hotItems: [NSMenuItem] = []
     private var fanModeItems: [FanControlMode: NSMenuItem] = [:]
-    private var selectedFanMode: FanControlMode?
+    private var selectedFanMode: FanControlMode? = .standard
     private var fanCommandInFlight = false
     private var fanCommandGeneration = 0
     private var startupStandardAttempted = false
@@ -176,7 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func refresh() {
-        temperature = reader?.cpuAverageTemperature()
+        temperature = temperatureSmoother.update(reader?.cpuAverageTemperature())
         if let reader {
             fans = (try? reader.fanSnapshots()) ?? []
         }
@@ -236,8 +237,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             helperActionItem.title = "Approve in System Settings…"
             helperActionItem.isEnabled = true
         case .enabled:
-            helperActionItem.title = "Fan Helper Enabled"
-            helperActionItem.isEnabled = false
+            helperActionItem.title = "Fan Helper Enabled…"
+            helperActionItem.isEnabled = true
         case .notFound:
             helperActionItem.title = "Fan Helper Missing"
             helperActionItem.isEnabled = false
@@ -343,6 +344,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               !fans.isEmpty,
               !fanCommandInFlight else { return }
         fanCommandInFlight = true
+        selectedFanMode = mode
         fanCommandGeneration += 1
         let generation = fanCommandGeneration
         fanStatusItem.title = "Applying \(mode.title)…"
@@ -378,7 +380,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         case .requiresApproval:
             helperManager.openApprovalSettings()
-        case .enabled, .notFound:
+        case .enabled:
+            helperManager.openApprovalSettings()
+        case .notFound:
             break
         }
         updateFanItems()
