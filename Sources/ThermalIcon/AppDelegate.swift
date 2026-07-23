@@ -193,12 +193,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             startupStandardAttempted = false
         }
         hasControllerConflict = controllerConflict
-        if !fanCommandInFlight,
-           selectedFanMode != nil,
-           !fans.isEmpty,
-           fans.allSatisfy({ !$0.isManual }) {
-            selectedFanMode = nil
-        }
         updateStatusItem()
         updateFanItems()
         applyStartupStandardIfReady()
