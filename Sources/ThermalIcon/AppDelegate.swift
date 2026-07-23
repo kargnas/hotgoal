@@ -315,7 +315,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusView.isHidden = false
         if combined {
             statusView.autoresizingMask = [.height]
-            statusView.frame = CGRect(x: 2, y: 0, width: 22, height: button.bounds.height)
+            statusView.frame = CGRect(x: 0, y: 0, width: 22, height: button.bounds.height)
         } else {
             statusView.autoresizingMask = [.width, .height]
             statusView.frame = button.bounds
@@ -323,8 +323,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func trimCombinedStatusItemWidth(for button: NSStatusBarButton) {
-        // Keep AppKit's native sizing and remove only the requested trailing 2 pt.
-        statusItem.length = max(NSStatusItem.squareLength, button.intrinsicContentSize.width - 2)
+        // AppKit centers the title: trim 4 pt and move the icon 2 pt left so only trailing space loses 2 pt.
+        statusItem.length = max(NSStatusItem.squareLength, button.intrinsicContentSize.width - 4)
     }
 
     private func symbol(named name: String) -> NSImage? {
