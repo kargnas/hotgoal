@@ -127,8 +127,10 @@ final class ThermalMotesStatusView: NSView {
         guard let duration = configuration.cycleDuration else { return }
 
         let color = temperatureColor(for: band)
-        let xPositions: [CGFloat] = configuration.count == 2 ? [14, 18] : [13, 16, 19, 14.5]
-        for index in 0 ..< configuration.count {
+        let xPositions: [CGFloat] = [2, 15, 1, 18]
+        let repeatPeriod = configuration.count == 1 ? duration * 2 : duration
+        let delayStep = repeatPeriod / Double(configuration.emitterCount)
+        for index in 0 ..< configuration.emitterCount {
             let mote = CAShapeLayer()
             mote.path = CGPath(ellipseIn: CGRect(x: -1, y: -1, width: 2, height: 2), transform: nil)
             mote.fillColor = color.cgColor
@@ -137,8 +139,9 @@ final class ThermalMotesStatusView: NSView {
             contentLayer.addSublayer(mote)
             mote.add(
                 moteAnimation(
-                    duration: duration,
-                    delay: duration * Double(index) / Double(configuration.count)
+                    travelDuration: duration,
+                    repeatPeriod: repeatPeriod,
+                    delay: delayStep * Double(index)
                 ),
                 forKey: "thermalMote"
             )
@@ -154,19 +157,25 @@ final class ThermalMotesStatusView: NSView {
         }
     }
 
-    private func moteAnimation(duration: CFTimeInterval, delay: CFTimeInterval) -> CAAnimationGroup {
+    private func moteAnimation(
+        travelDuration: CFTimeInterval,
+        repeatPeriod: CFTimeInterval,
+        delay: CFTimeInterval
+    ) -> CAAnimationGroup {
         let rise = CAKeyframeAnimation(keyPath: "transform.translation.y")
         rise.values = [0, 0, 9, 13]
         rise.keyTimes = [0, 0.08, 0.82, 1]
+        rise.duration = travelDuration
 
         let fade = CAKeyframeAnimation(keyPath: "opacity")
         fade.values = [0, 1, 1, 0]
         fade.keyTimes = [0, 0.12, 0.72, 1]
+        fade.duration = travelDuration
 
         let group = CAAnimationGroup()
         group.animations = [rise, fade]
         group.beginTime = CACurrentMediaTime() + delay
-        group.duration = duration
+        group.duration = repeatPeriod
         group.repeatCount = .infinity
         group.isRemovedOnCompletion = false
         group.timingFunction = CAMediaTimingFunction(name: .linear)

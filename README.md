@@ -33,7 +33,7 @@ Fan control setup:
 
 The build script signs the app and helper with the first available Developer ID Application or Apple Development identity. Fan writes are restricted to the three modes; arbitrary RPM values are intentionally unsupported. The hot threshold starts Quiet and Standard ramping, while 90 °C always forces maximum speed. Quitting the app or losing the helper connection restores Apple's automatic control.
 
-Icon colors are cyan for Cool, amber for Warm, and red for Hot. Cool shows one slow rising mote, Warm shows two, and Hot shows four faster motes. macOS Reduce Motion keeps the color and thermometer level while removing particle movement.
+Icon colors are cyan for Cool, amber for Warm, and red for Hot. Rising motes alternate left and right: Cool shows one slowly, Warm shows two, and Hot shows four faster motes. macOS Reduce Motion keeps the color and thermometer level while removing particle movement.
 
 Requires macOS 14 or later. CPU sensor mappings cover common Intel Macs and Apple M1–M5 generations.
 

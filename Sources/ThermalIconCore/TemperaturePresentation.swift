@@ -45,15 +45,16 @@ public enum TemperatureBand: Equatable {
 
     public var thermalMotes: ThermalMotesConfiguration {
         switch self {
-        case .cool: ThermalMotesConfiguration(count: 1, cycleDuration: 2.8, mercuryTop: 11)
-        case .warm: ThermalMotesConfiguration(count: 2, cycleDuration: 2.2, mercuryTop: 15)
-        case .hot: ThermalMotesConfiguration(count: 4, cycleDuration: 1.2, mercuryTop: 18)
+        case .cool: ThermalMotesConfiguration(count: 1, emitterCount: 2, cycleDuration: 2.8, mercuryTop: 11)
+        case .warm: ThermalMotesConfiguration(count: 2, emitterCount: 2, cycleDuration: 2.2, mercuryTop: 15)
+        case .hot: ThermalMotesConfiguration(count: 4, emitterCount: 4, cycleDuration: 1.2, mercuryTop: 18)
         }
     }
 }
 
 public struct ThermalMotesConfiguration: Equatable, Sendable {
     public let count: Int
+    public let emitterCount: Int
     public let cycleDuration: TimeInterval?
     public let mercuryTop: Double
 }
