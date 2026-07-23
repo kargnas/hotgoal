@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let menu = NSMenu()
     private let temperatureItem = NSMenuItem(title: "Reading CPU temperature…", action: nil, keyEquivalent: "")
     private let fanStatusItem = NSMenuItem(title: "Reading fans…", action: nil, keyEquivalent: "")
+    private let fanStatusView = FanStatusMenuView()
     private let iconModeItem = NSMenuItem(title: "Icon", action: #selector(selectIconMode), keyEquivalent: "")
     private let numberModeItem = NSMenuItem(title: "Icon + Number", action: #selector(selectNumberMode), keyEquivalent: "")
     private let helperActionItem = NSMenuItem(title: "Enable Fan Control…", action: #selector(handleHelperAction), keyEquivalent: "")
@@ -220,10 +221,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateFanItems() {
         if hasControllerConflict {
+            fanStatusItem.view = nil
             fanStatusItem.title = "Fans: controlled by Macs Fan Control"
         } else if fans.isEmpty {
+            fanStatusItem.view = nil
             fanStatusItem.title = "Fans: unavailable"
+        } else if fans.count == 2 {
+            let labels = fans.map { "Fan \($0.index + 1) \($0.currentRPM) RPM" }
+            fanStatusItem.title = labels.joined(separator: ", ")
+            fanStatusView.update(left: labels[0], right: labels[1])
+            if fanStatusItem.view !== fanStatusView {
+                fanStatusItem.view = fanStatusView
+            }
         } else {
+            fanStatusItem.view = nil
             let speeds = fans.map { "Fan \($0.index + 1) \($0.currentRPM) RPM" }.joined(separator: " · ")
             fanStatusItem.title = speeds
         }
@@ -268,6 +279,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             button.title = displayMode == .number ? "--°" : ""
             button.image = symbol(named: "exclamationmark.triangle")
             button.imagePosition = displayMode == .icon ? .imageOnly : .imageLeading
+            if displayMode == .number { trimCombinedStatusItemWidth(for: button) }
             button.toolTip = "CPU temperature unavailable"
             button.setAccessibilityValue("Unavailable")
             return
@@ -293,6 +305,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             button.title = "   " + String(format: "%.0f°", temperature)
             button.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
             button.imagePosition = .noImage
+            trimCombinedStatusItemWidth(for: button)
             showStatusView(in: button, combined: true)
             statusView.update(temperature: temperature, band: band)
         }
@@ -307,6 +320,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             statusView.autoresizingMask = [.width, .height]
             statusView.frame = button.bounds
         }
+    }
+
+    private func trimCombinedStatusItemWidth(for button: NSStatusBarButton) {
+        // Keep AppKit's native sizing and remove only the requested trailing 2 pt.
+        statusItem.length = max(NSStatusItem.squareLength, button.intrinsicContentSize.width - 2)
     }
 
     private func symbol(named name: String) -> NSImage? {
@@ -444,5 +462,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+}
+
+@MainActor
+private final class FanStatusMenuView: NSView {
+    private let leftLabel = NSTextField(labelWithString: "")
+    private let rightLabel = NSTextField(labelWithString: "")
+
+    init() {
+        super.init(frame: CGRect(x: 0, y: 0, width: 260, height: 30))
+        autoresizingMask = [.width]
+
+        for label in [leftLabel, rightLabel] {
+            label.translatesAutoresizingMaskIntoConstraints = false
+            label.font = .menuFont(ofSize: 0)
+            label.textColor = .disabledControlTextColor
+            label.lineBreakMode = .byTruncatingTail
+            addSubview(label)
+        }
+        rightLabel.alignment = .right
+
+        NSLayoutConstraint.activate([
+            leftLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            leftLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            rightLabel.leadingAnchor.constraint(greaterThanOrEqualTo: leftLabel.trailingAnchor, constant: 16),
+            rightLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            rightLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+
+    func update(left: String, right: String) {
+        leftLabel.stringValue = left
+        rightLabel.stringValue = right
     }
 }
