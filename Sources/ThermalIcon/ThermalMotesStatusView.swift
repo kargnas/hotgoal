@@ -42,8 +42,8 @@ final class ThermalMotesStatusView: NSView {
         nil
     }
 
-    override func layout() {
-        super.layout()
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         contentLayer.bounds = CGRect(x: 0, y: 0, width: 22, height: 22)
@@ -105,11 +105,7 @@ final class ThermalMotesStatusView: NSView {
 
     private func updateTemperatureAppearance() {
         guard let band else { return }
-        let color = switch band {
-        case .cool: Self.coolColor
-        case .warm: Self.warmColor
-        case .hot: Self.hotColor
-        }
+        let color = temperatureColor(for: band)
         let mercuryTop = CGFloat(band.thermalMotes.mercuryTop)
         let mercuryPath = CGMutablePath()
         mercuryPath.move(to: CGPoint(x: 7.5, y: 7))
@@ -130,7 +126,7 @@ final class ThermalMotesStatusView: NSView {
         let configuration = band.thermalMotes
         guard let duration = configuration.cycleDuration else { return }
 
-        let color = band == .warm ? Self.warmColor : Self.hotColor
+        let color = temperatureColor(for: band)
         let xPositions: [CGFloat] = configuration.count == 2 ? [14, 18] : [13, 16, 19, 14.5]
         for index in 0 ..< configuration.count {
             let mote = CAShapeLayer()
@@ -147,6 +143,14 @@ final class ThermalMotesStatusView: NSView {
                 forKey: "thermalMote"
             )
             moteLayers.append(mote)
+        }
+    }
+
+    private func temperatureColor(for band: TemperatureBand) -> NSColor {
+        switch band {
+        case .cool: Self.coolColor
+        case .warm: Self.warmColor
+        case .hot: Self.hotColor
         }
     }
 

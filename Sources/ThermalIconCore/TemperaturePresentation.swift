@@ -45,7 +45,7 @@ public enum TemperatureBand: Equatable {
 
     public var thermalMotes: ThermalMotesConfiguration {
         switch self {
-        case .cool: ThermalMotesConfiguration(count: 0, cycleDuration: nil, mercuryTop: 11)
+        case .cool: ThermalMotesConfiguration(count: 1, cycleDuration: 2.8, mercuryTop: 11)
         case .warm: ThermalMotesConfiguration(count: 2, cycleDuration: 2.2, mercuryTop: 15)
         case .hot: ThermalMotesConfiguration(count: 4, cycleDuration: 1.2, mercuryTop: 18)
         }

@@ -14,7 +14,7 @@ final class TemperaturePresentationTests: XCTestCase {
     func testThermalMotesConfigurationByTemperatureBand() {
         XCTAssertEqual(
             TemperatureBand.cool.thermalMotes,
-            ThermalMotesConfiguration(count: 0, cycleDuration: nil, mercuryTop: 11)
+            ThermalMotesConfiguration(count: 1, cycleDuration: 2.8, mercuryTop: 11)
         )
         XCTAssertEqual(
             TemperatureBand.warm.thermalMotes,
