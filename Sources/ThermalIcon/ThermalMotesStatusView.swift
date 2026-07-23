@@ -4,15 +4,12 @@ import ThermalIconCore
 
 @MainActor
 final class ThermalMotesStatusView: NSView {
-    private static let coolColor = NSColor(srgbRed: 0x38 / 255, green: 0xBD / 255, blue: 0xF8 / 255, alpha: 1)
-    private static let warmColor = NSColor(srgbRed: 0xFF / 255, green: 0xB3 / 255, blue: 0x40 / 255, alpha: 1)
-    private static let hotColor = NSColor(srgbRed: 0xFF / 255, green: 0x45 / 255, blue: 0x3A / 255, alpha: 1)
-
     private let contentLayer = CALayer()
     private let tubeLayer = CAShapeLayer()
     private let mercuryLayer = CAShapeLayer()
     private let bulbLayer = CAShapeLayer()
     private var moteLayers: [CAShapeLayer] = []
+    private var temperature: Double?
     private var band: TemperatureBand?
     private var reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 
@@ -56,13 +53,19 @@ final class ThermalMotesStatusView: NSView {
         updateOutlineColor()
     }
 
-    func update(band newBand: TemperatureBand?) {
+    func update(temperature newTemperature: Double?, band newBand: TemperatureBand?) {
         let newReduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        guard newBand != band || newReduceMotion != reduceMotion else { return }
+        let needsMoteRebuild = newBand != band || newReduceMotion != reduceMotion
+        guard newTemperature != temperature || needsMoteRebuild else { return }
+        temperature = newTemperature
         band = newBand
         reduceMotion = newReduceMotion
         updateTemperatureAppearance()
-        rebuildMotes()
+        if needsMoteRebuild {
+            rebuildMotes()
+        } else {
+            updateMoteColors()
+        }
     }
 
     private func configureThermometer() {
@@ -84,7 +87,7 @@ final class ThermalMotesStatusView: NSView {
         mercuryLayer.path = mercuryPath
         mercuryLayer.fillColor = NSColor.clear.cgColor
         mercuryLayer.lineCap = .round
-        mercuryLayer.lineWidth = 2
+        mercuryLayer.lineWidth = 3
         contentLayer.addSublayer(mercuryLayer)
 
         bulbLayer.path = CGPath(ellipseIn: CGRect(x: 3.5, y: 2.5, width: 8, height: 8), transform: nil)
@@ -104,17 +107,26 @@ final class ThermalMotesStatusView: NSView {
     }
 
     private func updateTemperatureAppearance() {
-        guard let band else { return }
-        let color = temperatureColor(for: band)
-        let mercuryTop = CGFloat(band.thermalMotes.mercuryTop)
+        guard let temperature else { return }
+        let color = temperatureColor(for: temperature)
+        let mercuryTop = CGFloat(TemperaturePalette.mercuryTop(for: temperature))
         let mercuryPath = CGMutablePath()
         mercuryPath.move(to: CGPoint(x: 7.5, y: 7))
         mercuryPath.addLine(to: CGPoint(x: 7.5, y: mercuryTop))
         CATransaction.begin()
-        CATransaction.setDisableActions(true)
+        CATransaction.setAnimationDuration(0.45)
         mercuryLayer.path = mercuryPath
         mercuryLayer.strokeColor = color.cgColor
         bulbLayer.fillColor = color.cgColor
+        CATransaction.commit()
+    }
+
+    private func updateMoteColors() {
+        guard let temperature else { return }
+        let color = temperatureColor(for: temperature).cgColor
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.45)
+        moteLayers.forEach { $0.fillColor = color }
         CATransaction.commit()
     }
 
@@ -122,11 +134,11 @@ final class ThermalMotesStatusView: NSView {
         moteLayers.forEach { $0.removeFromSuperlayer() }
         moteLayers.removeAll()
 
-        guard !reduceMotion, let band else { return }
+        guard !reduceMotion, let band, let temperature else { return }
         let configuration = band.thermalMotes
         guard let duration = configuration.cycleDuration else { return }
 
-        let color = temperatureColor(for: band)
+        let color = temperatureColor(for: temperature)
         let xPositions: [CGFloat] = [2, 15, 1, 18]
         let repeatPeriod = configuration.count == 1 ? duration + 0.8 : duration
         let delayStep = configuration.count == 1 ? 0.45 : repeatPeriod / Double(configuration.emitterCount)
@@ -149,12 +161,9 @@ final class ThermalMotesStatusView: NSView {
         }
     }
 
-    private func temperatureColor(for band: TemperatureBand) -> NSColor {
-        switch band {
-        case .cool: Self.coolColor
-        case .warm: Self.warmColor
-        case .hot: Self.hotColor
-        }
+    private func temperatureColor(for celsius: Double) -> NSColor {
+        let color = TemperaturePalette.color(for: celsius)
+        return NSColor(srgbRed: color.red, green: color.green, blue: color.blue, alpha: 1)
     }
 
     private func moteAnimation(

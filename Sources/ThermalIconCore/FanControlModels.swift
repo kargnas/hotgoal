@@ -42,6 +42,7 @@ public struct FanSnapshot: Codable, Equatable, Sendable {
 }
 
 public enum FanControlMode: String, CaseIterable, Codable, Sendable {
+    case muted
     case quiet
     case standard
     case ultra
@@ -52,6 +53,9 @@ public enum FanControlMode: String, CaseIterable, Codable, Sendable {
 }
 
 public enum QuietFanCurve {
+    // Keep steady airflow while preserving a clear acoustic gap below Standard.
+    public static let minimumRPM = 1_500
+
     public static func percentage(celsius: Double, thresholds: TemperatureThresholds) -> Int {
         guard celsius.isFinite else { return 100 }
         if celsius >= 90 { return 100 }
@@ -68,8 +72,9 @@ public enum QuietFanCurve {
         maximum: Int,
         thresholds: TemperatureThresholds
     ) -> Int {
+        let floor = min(max(Self.minimumRPM, minimum), maximum)
         let percent = percentage(celsius: celsius, thresholds: thresholds)
-        return rampedTargetRPM(floor: minimum, maximum: maximum, percent: percent)
+        return rampedTargetRPM(floor: floor, maximum: maximum, percent: percent)
     }
 }
 

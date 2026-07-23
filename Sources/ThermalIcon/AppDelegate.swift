@@ -16,7 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let temperatureItem = NSMenuItem(title: "Reading CPU temperature…", action: nil, keyEquivalent: "")
     private let fanStatusItem = NSMenuItem(title: "Reading fans…", action: nil, keyEquivalent: "")
     private let iconModeItem = NSMenuItem(title: "Icon", action: #selector(selectIconMode), keyEquivalent: "")
-    private let numberModeItem = NSMenuItem(title: "Number", action: #selector(selectNumberMode), keyEquivalent: "")
+    private let numberModeItem = NSMenuItem(title: "Icon + Number", action: #selector(selectNumberMode), keyEquivalent: "")
     private let helperActionItem = NSMenuItem(title: "Enable Fan Control…", action: #selector(handleHelperAction), keyEquivalent: "")
     private let reader: SMCReader?
     private let helperManager = FanHelperServiceManager()
@@ -263,11 +263,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let temperature else {
             temperatureItem.title = "CPU temperature unavailable"
             statusItem.length = displayMode == .icon ? NSStatusItem.squareLength : NSStatusItem.variableLength
-            statusView.update(band: nil)
+            statusView.update(temperature: nil, band: nil)
             statusView.isHidden = true
             button.title = displayMode == .number ? "--°" : ""
-            button.image = displayMode == .icon ? symbol(named: "exclamationmark.triangle") : nil
-            button.imagePosition = displayMode == .icon ? .imageOnly : .noImage
+            button.image = symbol(named: "exclamationmark.triangle")
+            button.imagePosition = displayMode == .icon ? .imageOnly : .imageLeading
             button.toolTip = "CPU temperature unavailable"
             button.setAccessibilityValue("Unavailable")
             return
@@ -284,16 +284,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             statusItem.length = NSStatusItem.squareLength
             button.title = ""
             button.image = nil
-            statusView.isHidden = false
-            statusView.update(band: band)
+            button.imagePosition = .noImage
+            showStatusView(in: button, combined: false)
+            statusView.update(temperature: temperature, band: band)
         case .number:
             statusItem.length = NSStatusItem.variableLength
-            statusView.update(band: nil)
-            statusView.isHidden = true
             button.image = nil
-            button.title = String(format: "%.0f°", temperature)
+            button.title = "   " + String(format: "%.0f°", temperature)
             button.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
             button.imagePosition = .noImage
+            showStatusView(in: button, combined: true)
+            statusView.update(temperature: temperature, band: band)
+        }
+    }
+
+    private func showStatusView(in button: NSStatusBarButton, combined: Bool) {
+        statusView.isHidden = false
+        if combined {
+            statusView.autoresizingMask = [.height]
+            statusView.frame = CGRect(x: 2, y: 0, width: 22, height: button.bounds.height)
+        } else {
+            statusView.autoresizingMask = [.width, .height]
+            statusView.frame = button.bounds
         }
     }
 

@@ -1,19 +1,20 @@
 # Thermal Icon
 
-Tiny macOS menu-bar app that represents current CPU temperature with an icon instead of permanent digits.
+Tiny macOS menu-bar app that represents current CPU temperature with an animated thermometer.
 
 - compact thermometer icon in the menu bar
 - exact temperature in tooltip and menu
-- optional numeric menu-bar mode
-- temperature-colored Thermal Motes animation in icon mode
+- optional icon-and-number menu-bar mode
+- continuously temperature-colored Thermal Motes animation
 - configurable warm/hot thresholds
 - live fan RPM monitoring
-- signed privileged helper with Quiet, Standard, and Ultra modes
+- signed privileged helper with Muted, Quiet, Standard, and Ultra modes
 - automatic fan reset when the app disconnects or the helper stops
 
 Fan modes:
 
-- **Quiet** — hardware-minimum speed through the hot threshold, rising to maximum by 90 °C
+- **Muted** — Apple automatic fan control, allowing zero RPM when the system considers it safe
+- **Quiet** — 1,500 RPM minimum through the hot threshold, rising to maximum by 90 °C
 - **Standard** — 1,800 RPM minimum through the hot threshold, rising to maximum by 90 °C
 - **Ultra** — fixed 100% fan speed
 
@@ -31,9 +32,9 @@ Fan control setup:
 2. Choose **Fan Control → Enable Fan Control…**.
 3. Approve **Thermal Icon.app** in **System Settings → General → Login Items & Extensions**.
 
-The build script signs the app and helper with the first available Developer ID Application or Apple Development identity. Fan writes are restricted to the three modes; arbitrary RPM values are intentionally unsupported. The hot threshold starts Quiet and Standard ramping, while 90 °C always forces maximum speed. Quitting the app or losing the helper connection restores Apple's automatic control.
+The build script signs the app and helper with the first available Developer ID Application or Apple Development identity. Fan control is restricted to the four modes; arbitrary RPM values are intentionally unsupported. The hot threshold starts Quiet and Standard ramping, while 90 °C always forces maximum speed. Quitting the app or losing the helper connection restores Apple's automatic control.
 
-Icon colors are cyan for Cool, amber for Warm, and red for Hot. Rising motes alternate left and right: Cool shows one slowly, Warm shows two, and Hot shows four faster motes. macOS Reduce Motion keeps the color and thermometer level while removing particle movement.
+Icon colors move continuously from blue through cyan, green, and yellow to red. Mercury level follows temperature and fills the tube near 95 °C. Rising motes alternate left and right: Cool shows one slowly, Warm shows two, and Hot shows four faster motes. macOS Reduce Motion keeps the color and thermometer level while removing particle movement.
 
 Requires macOS 14 or later. CPU sensor mappings cover common Intel Macs and Apple M1–M5 generations.
 

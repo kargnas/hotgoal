@@ -46,6 +46,9 @@ private final class FanService: @unchecked Sendable {
         cancelControlTimerLocked()
 
         switch mode {
+        case .muted:
+            try reader.restoreAutomatic()
+            activeMode = .muted
         case .ultra:
             do {
                 try reader.setFanPercentage(100)
@@ -71,7 +74,7 @@ private final class FanService: @unchecked Sendable {
 
     private func refreshTemperatureControl() {
         locked {
-            guard let mode = activeMode, mode != .ultra else { return }
+            guard let mode = activeMode, mode == .quiet || mode == .standard else { return }
             do {
                 try refreshTemperatureControlLocked(mode: mode)
             } catch {
@@ -88,30 +91,37 @@ private final class FanService: @unchecked Sendable {
     }
 
     private func refreshTemperatureControlLocked(mode: FanControlMode) throws {
+        switch mode {
+        case .muted:
+            try reader.restoreAutomatic()
+            return
+        case .ultra:
+            try reader.setFanPercentage(100)
+            return
+        case .quiet, .standard:
+            break
+        }
+
         guard let temperature = reader.cpuAverageTemperature(), temperature.isFinite else {
             throw SMCReader.ReaderError.temperatureUnavailable
         }
         let fans = try reader.fanSnapshots()
         guard !fans.isEmpty else { throw SMCReader.ReaderError.invalidFan }
         let targets = fans.map { fan in
-            switch mode {
-            case .quiet:
-                QuietFanCurve.targetRPM(
+            if mode == .quiet {
+                return QuietFanCurve.targetRPM(
                     celsius: temperature,
                     minimum: fan.minimumRPM,
                     maximum: fan.maximumRPM,
                     thresholds: controlThresholds
                 )
-            case .standard:
-                StandardFanCurve.targetRPM(
-                    celsius: temperature,
-                    minimum: fan.minimumRPM,
-                    maximum: fan.maximumRPM,
-                    thresholds: controlThresholds
-                )
-            case .ultra:
-                fan.maximumRPM
             }
+            return StandardFanCurve.targetRPM(
+                celsius: temperature,
+                minimum: fan.minimumRPM,
+                maximum: fan.maximumRPM,
+                thresholds: controlThresholds
+            )
         }
         try reader.setFanTargets(targets)
     }

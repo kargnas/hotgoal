@@ -5,6 +5,52 @@ public enum DisplayMode: String {
     case number
 }
 
+public struct ThermalColor: Equatable, Sendable {
+    public let red: Double
+    public let green: Double
+    public let blue: Double
+}
+
+public enum TemperaturePalette {
+    // 35–95 °C spans the useful CPU range; outliers clamp instead of leaving the palette.
+    public static func color(for celsius: Double) -> ThermalColor {
+        let value = celsius.isFinite ? min(max(celsius, 35), 95) : 95
+        switch value {
+        case ..<50: return blend(blue, cyan, fraction: (value - 35) / 15)
+        case ..<65: return blend(cyan, green, fraction: (value - 50) / 15)
+        case ..<78: return blend(green, yellow, fraction: (value - 65) / 13)
+        default: return blend(yellow, red, fraction: (value - 78) / 17)
+        }
+    }
+
+    public static func mercuryTop(for celsius: Double) -> Double {
+        let value = celsius.isFinite ? min(max(celsius, 35), 95) : 95
+        return 12 + (value - 35) / 60 * 5
+    }
+
+    private static let blue = rgb(0x4D, 0xA3, 0xFF)
+    private static let cyan = rgb(0x43, 0xD9, 0xD1)
+    private static let green = rgb(0x75, 0xE0, 0x6B)
+    private static let yellow = rgb(0xFF, 0xD4, 0x52)
+    private static let red = rgb(0xFF, 0x45, 0x3A)
+
+    private static func rgb(_ red: Int, _ green: Int, _ blue: Int) -> ThermalColor {
+        ThermalColor(
+            red: Double(red) / 255,
+            green: Double(green) / 255,
+            blue: Double(blue) / 255
+        )
+    }
+
+    private static func blend(_ start: ThermalColor, _ end: ThermalColor, fraction: Double) -> ThermalColor {
+        ThermalColor(
+            red: start.red + (end.red - start.red) * fraction,
+            green: start.green + (end.green - start.green) * fraction,
+            blue: start.blue + (end.blue - start.blue) * fraction
+        )
+    }
+}
+
 public struct TemperatureThresholds: Equatable {
     public static let defaultWarm = 55.0
     public static let defaultHot = 80.0
@@ -45,9 +91,9 @@ public enum TemperatureBand: Equatable {
 
     public var thermalMotes: ThermalMotesConfiguration {
         switch self {
-        case .cool: ThermalMotesConfiguration(count: 1, emitterCount: 2, cycleDuration: 2.8, mercuryTop: 11)
-        case .warm: ThermalMotesConfiguration(count: 2, emitterCount: 2, cycleDuration: 2.2, mercuryTop: 15)
-        case .hot: ThermalMotesConfiguration(count: 4, emitterCount: 4, cycleDuration: 1.2, mercuryTop: 18)
+        case .cool: ThermalMotesConfiguration(count: 1, emitterCount: 2, cycleDuration: 2.8)
+        case .warm: ThermalMotesConfiguration(count: 2, emitterCount: 2, cycleDuration: 2.2)
+        case .hot: ThermalMotesConfiguration(count: 4, emitterCount: 4, cycleDuration: 1.2)
         }
     }
 }
@@ -56,5 +102,4 @@ public struct ThermalMotesConfiguration: Equatable, Sendable {
     public let count: Int
     public let emitterCount: Int
     public let cycleDuration: TimeInterval?
-    public let mercuryTop: Double
 }

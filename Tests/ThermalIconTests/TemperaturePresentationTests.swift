@@ -18,19 +18,36 @@ final class TemperaturePresentationTests: XCTestCase {
         XCTAssertEqual(TemperatureBand.classify(80, thresholds: thresholds), .hot)
     }
 
+    func testTemperaturePaletteInterpolatesAndClamps() {
+        let cold = TemperaturePalette.color(for: 35)
+        let cyan = TemperaturePalette.color(for: 50)
+        let midpoint = TemperaturePalette.color(for: 57.5)
+
+        XCTAssertEqual(TemperaturePalette.color(for: 0), cold)
+        XCTAssertEqual(TemperaturePalette.color(for: 100), TemperaturePalette.color(for: 95))
+        XCTAssertEqual(cyan.red, Double(0x43) / 255, accuracy: 0.001)
+        XCTAssertEqual(midpoint.red, Double(0x43 + 0x75) / 2 / 255, accuracy: 0.001)
+        XCTAssertEqual(TemperaturePalette.mercuryTop(for: 35), 12, accuracy: 0.001)
+        XCTAssertEqual(TemperaturePalette.mercuryTop(for: 95), 17, accuracy: 0.001)
+    }
+
     func testThermalMotesConfigurationByTemperatureBand() {
         XCTAssertEqual(
             TemperatureBand.cool.thermalMotes,
-            ThermalMotesConfiguration(count: 1, emitterCount: 2, cycleDuration: 2.8, mercuryTop: 11)
+            ThermalMotesConfiguration(count: 1, emitterCount: 2, cycleDuration: 2.8)
         )
         XCTAssertEqual(
             TemperatureBand.warm.thermalMotes,
-            ThermalMotesConfiguration(count: 2, emitterCount: 2, cycleDuration: 2.2, mercuryTop: 15)
+            ThermalMotesConfiguration(count: 2, emitterCount: 2, cycleDuration: 2.2)
         )
         XCTAssertEqual(
             TemperatureBand.hot.thermalMotes,
-            ThermalMotesConfiguration(count: 4, emitterCount: 4, cycleDuration: 1.2, mercuryTop: 18)
+            ThermalMotesConfiguration(count: 4, emitterCount: 4, cycleDuration: 1.2)
         )
+    }
+
+    func testFanModesIncludeMutedBeforeStandardModes() {
+        XCTAssertEqual(FanControlMode.allCases, [.muted, .quiet, .standard, .ultra])
     }
 
     func testInvalidPersistedThresholdsFallBackToDefaults() {
@@ -62,6 +79,10 @@ final class TemperaturePresentationTests: XCTestCase {
     func testQuietCurveTargetsStayInsideHardwareRange() {
         let thresholds = TemperatureThresholds(warm: 55, hot: 80)
 
+        XCTAssertEqual(
+            QuietFanCurve.targetRPM(celsius: 20, minimum: 1_350, maximum: 6_000, thresholds: thresholds),
+            1_500
+        )
         XCTAssertEqual(
             QuietFanCurve.targetRPM(celsius: 20, minimum: 1_500, maximum: 6_000, thresholds: thresholds),
             1_500
