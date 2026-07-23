@@ -18,13 +18,18 @@ final class TemperaturePresentationTests: XCTestCase {
         )
     }
 
-    func testQuietCurveRampsFromThirtyPercentToMaximum() {
+    func testQuietCurveStaysAtMinimumUntilHotThenRamps() {
         let thresholds = TemperatureThresholds(warm: 55, hot: 80)
 
-        XCTAssertEqual(QuietFanCurve.percentage(celsius: 50, thresholds: thresholds), 30)
-        XCTAssertEqual(QuietFanCurve.percentage(celsius: 67.5, thresholds: thresholds), 50)
-        XCTAssertEqual(QuietFanCurve.percentage(celsius: 80, thresholds: thresholds), 70)
+        XCTAssertEqual(QuietFanCurve.percentage(celsius: 50, thresholds: thresholds), 0)
+        XCTAssertEqual(QuietFanCurve.percentage(celsius: 79.9, thresholds: thresholds), 0)
+        XCTAssertEqual(QuietFanCurve.percentage(celsius: 80, thresholds: thresholds), 0)
+        XCTAssertEqual(QuietFanCurve.percentage(celsius: 85, thresholds: thresholds), 50)
         XCTAssertEqual(QuietFanCurve.percentage(celsius: 90, thresholds: thresholds), 100)
+
+        let lateRamp = TemperatureThresholds(warm: 65, hot: 90)
+        XCTAssertEqual(QuietFanCurve.percentage(celsius: 89.9, thresholds: lateRamp), 0)
+        XCTAssertEqual(QuietFanCurve.percentage(celsius: 90, thresholds: lateRamp), 100)
     }
 
     func testQuietCurveTargetsStayInsideHardwareRange() {
@@ -32,7 +37,7 @@ final class TemperaturePresentationTests: XCTestCase {
 
         XCTAssertEqual(
             QuietFanCurve.targetRPM(celsius: 20, minimum: 1_500, maximum: 6_000, thresholds: thresholds),
-            1_800
+            1_500
         )
         XCTAssertEqual(
             QuietFanCurve.targetRPM(celsius: 20, minimum: 5_500, maximum: 6_000, thresholds: thresholds),

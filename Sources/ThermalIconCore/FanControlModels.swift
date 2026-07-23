@@ -54,24 +54,12 @@ public enum FanControlMode: String, CaseIterable, Codable, Sendable {
 public enum QuietFanCurve {
     public static func percentage(celsius: Double, thresholds: TemperatureThresholds) -> Int {
         guard celsius.isFinite else { return 100 }
-        if celsius <= thresholds.warm { return 30 }
         if celsius >= 90 { return 100 }
-
-        if thresholds.hot >= 90 {
-            let span = 90 - thresholds.warm
-            guard span > 0 else { return 100 }
-            return Int((30 + 70 * (celsius - thresholds.warm) / span).rounded())
-        }
-
-        if celsius < thresholds.hot {
-            let span = thresholds.hot - thresholds.warm
-            guard span > 0 else { return 70 }
-            return Int((30 + 40 * (celsius - thresholds.warm) / span).rounded())
-        }
+        if celsius <= thresholds.hot { return 0 }
 
         let span = 90 - thresholds.hot
         guard span > 0 else { return 100 }
-        return Int((70 + 30 * (celsius - thresholds.hot) / span).rounded())
+        return Int((100 * (celsius - thresholds.hot) / span).rounded())
     }
 
     public static func targetRPM(
