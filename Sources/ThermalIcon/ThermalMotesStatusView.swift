@@ -128,8 +128,8 @@ final class ThermalMotesStatusView: NSView {
 
         let color = temperatureColor(for: band)
         let xPositions: [CGFloat] = [2, 15, 1, 18]
-        let repeatPeriod = configuration.count == 1 ? duration * 2 : duration
-        let delayStep = repeatPeriod / Double(configuration.emitterCount)
+        let repeatPeriod = configuration.count == 1 ? duration + 0.8 : duration
+        let delayStep = configuration.count == 1 ? 0.45 : repeatPeriod / Double(configuration.emitterCount)
         for index in 0 ..< configuration.emitterCount {
             let mote = CAShapeLayer()
             mote.path = CGPath(ellipseIn: CGRect(x: -1, y: -1, width: 2, height: 2), transform: nil)
