@@ -2,13 +2,11 @@ import XCTest
 @testable import ThermalIconCore
 
 final class TemperaturePresentationTests: XCTestCase {
-    func testTemperatureSmootherDampsSpikesAndResetsAfterUnavailableReading() {
-        var smoother = TemperatureSmoother()
-
-        XCTAssertEqual(smoother.update(72)!, 72, accuracy: 0.001)
-        XCTAssertEqual(smoother.update(82)!, 73, accuracy: 0.001)
-        XCTAssertNil(smoother.update(nil))
-        XCTAssertEqual(smoother.update(80)!, 80, accuracy: 0.001)
+    func testM4DormantPerformanceCoreTemperatureIsRejected() {
+        XCTAssertFalse(SMCReader.isUsableCPUTemperature(40, key: "Tp01", rejectsDormantPcoreReadings: true))
+        XCTAssertTrue(SMCReader.isUsableCPUTemperature(40, key: "Te05", rejectsDormantPcoreReadings: true))
+        XCTAssertTrue(SMCReader.isUsableCPUTemperature(40, key: "Tp01", rejectsDormantPcoreReadings: false))
+        XCTAssertFalse(SMCReader.isUsableCPUTemperature(1.9, key: "Tp01", rejectsDormantPcoreReadings: true))
     }
 
     func testTemperatureBandsAtThresholdBoundaries() {

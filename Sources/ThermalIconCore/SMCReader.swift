@@ -123,6 +123,7 @@ public final class SMCReader {
     private var connection: io_connect_t = 0
     private let cpuKeys: [String]
     private let isAppleSilicon: Bool
+    private let rejectsDormantPcoreReadings: Bool
     private var usesLowercaseFanModeKey: Bool?
 
     public init() throws {
@@ -145,6 +146,7 @@ public final class SMCReader {
         let brand = Self.cpuBrand()
         cpuKeys = Self.temperatureKeys(for: brand)
         isAppleSilicon = brand.hasPrefix("Apple ")
+        rejectsDormantPcoreReadings = brand.contains(" M4")
     }
 
     deinit {
@@ -153,10 +155,24 @@ public final class SMCReader {
 
     public func cpuAverageTemperature() -> Double? {
         let values = cpuKeys.compactMap { key -> Double? in
-            guard let value = try? numericValue(for: key), (5...115).contains(value) else { return nil }
+            guard let value = try? numericValue(for: key),
+                  Self.isUsableCPUTemperature(
+                      value,
+                      key: key,
+                      rejectsDormantPcoreReadings: rejectsDormantPcoreReadings
+                  ) else { return nil }
             return value
         }
         return values.isEmpty ? nil : values.reduce(0, +) / Double(values.count)
+    }
+
+    static func isUsableCPUTemperature(
+        _ value: Double,
+        key: String,
+        rejectsDormantPcoreReadings: Bool
+    ) -> Bool {
+        (5...115).contains(value) &&
+            !(rejectsDormantPcoreReadings && key.hasPrefix("Tp") && value == 40)
     }
 
     public func fanSnapshots() throws -> [FanSnapshot] {

@@ -23,7 +23,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let helperClient = FanHelperClient()
     private var timer: Timer?
     private var temperature: Double?
-    private var temperatureSmoother = TemperatureSmoother()
     private var fans: [FanSnapshot] = []
     private var hasControllerConflict = false
     private var displayMode: DisplayMode
@@ -177,7 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func refresh() {
-        temperature = temperatureSmoother.update(reader?.cpuAverageTemperature())
+        temperature = reader?.cpuAverageTemperature()
         if let reader {
             fans = (try? reader.fanSnapshots()) ?? []
         }
