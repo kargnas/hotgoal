@@ -66,7 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         configureMenu()
         refresh()
 
-        let timer = Timer(timeInterval: 2, target: self, selector: #selector(refresh), userInfo: nil, repeats: true)
+        let timer = Timer(timeInterval: 0.2, target: self, selector: #selector(refresh), userInfo: nil, repeats: true)
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }
