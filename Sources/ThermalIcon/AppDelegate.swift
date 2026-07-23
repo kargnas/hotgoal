@@ -21,7 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let reader: SMCReader?
     private let helperManager = FanHelperServiceManager()
     private let helperClient = FanHelperClient()
-    private var timer: Timer?
+    private var temperatureTimer: Timer?
+    private var fanTimer: Timer?
     private var temperature: Double?
     private var fans: [FanSnapshot] = []
     private var hasControllerConflict = false
@@ -66,13 +67,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         configureMenu()
         refresh()
 
-        let timer = Timer(timeInterval: 0.2, target: self, selector: #selector(refresh), userInfo: nil, repeats: true)
-        RunLoop.main.add(timer, forMode: .common)
-        self.timer = timer
+        let temperatureTimer = Timer(
+            timeInterval: 0.5,
+            target: self,
+            selector: #selector(refreshTemperature),
+            userInfo: nil,
+            repeats: true
+        )
+        RunLoop.main.add(temperatureTimer, forMode: .common)
+        self.temperatureTimer = temperatureTimer
+
+        let fanTimer = Timer(timeInterval: 0.2, target: self, selector: #selector(refreshFans), userInfo: nil, repeats: true)
+        RunLoop.main.add(fanTimer, forMode: .common)
+        self.fanTimer = fanTimer
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        timer?.invalidate()
+        temperatureTimer?.invalidate()
+        fanTimer?.invalidate()
         helperClient.disconnect()
     }
 
@@ -176,7 +188,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func refresh() {
+        refreshTemperature()
+        refreshFans()
+    }
+
+    @objc private func refreshTemperature() {
         temperature = reader?.cpuAverageTemperature()
+        updateStatusItem()
+    }
+
+    @objc private func refreshFans() {
         if let reader {
             fans = (try? reader.fanSnapshots()) ?? []
         }
@@ -193,7 +214,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             startupStandardAttempted = false
         }
         hasControllerConflict = controllerConflict
-        updateStatusItem()
         updateFanItems()
         applyStartupStandardIfReady()
     }
