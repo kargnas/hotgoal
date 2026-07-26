@@ -1,45 +1,72 @@
-# Thermal Icon
+# Modern Mac Fan Control
 
-Tiny macOS menu-bar app that represents current CPU temperature with an animated thermometer.
+Native macOS menu-bar temperature monitoring with animated thermal feedback and four guarded fan modes.
 
-- compact thermometer icon in the menu bar
-- exact temperature in tooltip and menu
-- optional icon-and-number menu-bar mode
-- continuously temperature-colored Thermal Motes animation
-- configurable warm/hot thresholds
-- live fan RPM monitoring
-- signed privileged helper with Muted, Quiet, Standard, and Ultra modes
-- automatic fan reset when the app disconnects or the helper stops
+[**Watch the 3.6-second demo →**](docs/thermal-motes.mp4) · [Screenshots ↓](#screenshots)
 
-Fan modes:
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111827?logo=apple)](https://www.apple.com/macos/)
+[![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](Package.swift)
+[![GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-2563eb)](LICENSE)
 
-- **Muted** — Apple automatic fan control, allowing zero RPM when the system considers it safe
-- **Quiet** — 1,500 RPM minimum through the hot threshold, rising to maximum by 90 °C
-- **Standard** — 1,800 RPM minimum through the hot threshold, rising to maximum by 90 °C
-- **Ultra** — fixed 100% fan speed
+<a href="docs/thermal-motes.mp4">
+  <img src="docs/thermal-icon-hero.png" width="800" alt="Animated green thermometer with paired thermal motes">
+</a>
 
-Quiet and Standard hold small 3 °C cooldown fluctuations and lower RPM more slowly than they raise it, preventing audible fan-speed hunting. The 90 °C maximum-speed rule bypasses this stabilization immediately.
+<p align="center"><a href="docs/thermal-motes.mp4">Play the MP4: 800×450 · H.264 · 30 fps</a></p>
 
-## Run
+## Screenshots
+
+| Screen | What it does |
+|---|---|
+| <img src="docs/menu-bar-combined.png" width="254" alt="Thermometer and temperature in the macOS menu bar"> | Shows the animated thermometer and exact temperature together. |
+| <img src="docs/menu-bar-icon.png" width="350" alt="Thermometer-only menu-bar mode"> | Keeps the menu bar compact while color and mercury level carry the thermal state. |
+| <img src="docs/fan-status.png" width="400" alt="Left- and right-aligned fan RPM values"> | Reports both fan speeds with native left/right alignment. |
+
+The paired-wave animation sends a left mote followed by a right mote after 0.45 seconds, then repeats every 3.6 seconds. Color moves continuously from blue through cyan, green, and yellow to red.
+
+## Choose a fan mode
+
+| Mode | Minimum | Behavior |
+|---|---:|---|
+| Muted | Apple automatic | Allows 0 RPM when macOS considers it safe. |
+| Quiet | 1,500 RPM | Holds the minimum until the hot threshold, then ramps to maximum at 90 °C. |
+| Standard | 1,800 RPM | Default mode; holds the higher floor until the hot threshold, then ramps to maximum at 90 °C. |
+| Ultra | Maximum | Runs every fan at 100%. |
+
+Quiet and Standard ignore 3 °C cooldown fluctuations and lower RPM more slowly than they raise it, reducing audible fan hunting. Reaching 90 °C bypasses stabilization and requests maximum speed immediately.
+
+## Stack at a glance
+
+| Layer | Tech |
+|---|---|
+| Menu bar UI | AppKit + Core Animation |
+| Temperature and fan sensors | IOKit + AppleSMC |
+| Fan control | ServiceManagement + signed XPC helper |
+| Build and tests | Swift 6 + Swift Package Manager |
+
+## Run locally
 
 ```bash
+git clone https://github.com/kargnas/modern-mac-fan-control.git
+cd modern-mac-fan-control
 ./script/build_and_run.sh --verify
 ```
 
-Built app: `dist/Thermal Icon.app`
+Requires macOS 14 or later and a Developer ID Application or Apple Development signing identity.
 
-Fan control setup:
+To enable fan control:
 
-1. Quit other fan controllers such as Macs Fan Control.
+1. Quit other fan controllers.
 2. Choose **Fan Control → Enable Fan Control…**.
 3. Approve **Thermal Icon.app** in **System Settings → General → Login Items & Extensions**.
 
-The build script signs the app and helper with the first available Developer ID Application or Apple Development identity. Fan control is restricted to the four modes; arbitrary RPM values are intentionally unsupported. The hot threshold starts Quiet and Standard ramping, while 90 °C always forces maximum speed. Quitting the app or losing the helper connection restores Apple's automatic control.
+The helper accepts only the four modes above. Quitting the app or losing the helper connection restores Apple automatic control.
 
-Icon colors move continuously from blue through cyan, green, and yellow to red. Mercury level follows temperature and fills the tube near 95 °C. Rising motes alternate left and right: Cool shows one slowly, Warm shows two, and Hot shows four faster motes. macOS Reduce Motion keeps the color and thermometer level while removing particle movement.
+## Verify the build
 
-Requires macOS 14 or later. CPU sensor mappings cover common Intel Macs and Apple M1–M5 generations.
+```text
+$ swift test
+Executed 13 tests, with 0 failures
+```
 
-## License
-
-MIT. AppleSMC, signed-helper, and fan-stabilization code is based on [Stats](https://github.com/exelban/stats), [MacFanControl](https://github.com/achen4020/MacFanControl), and [smctl](https://github.com/leaperone/smctl); see `THIRD_PARTY_NOTICES.md`.
+Licensed under [GPL-3.0-only](LICENSE). MIT notices for Stats, smctl, and MacFanControl remain in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
