@@ -22,7 +22,7 @@ Native macOS menu-bar temperature monitoring with animated thermal feedback and 
 | <img src="docs/menu-bar-icon.png" width="350" alt="Thermometer-only menu-bar mode"> | Keeps the menu bar compact while color and mercury level carry the thermal state. |
 | <img src="docs/fan-status.png" width="400" alt="Left- and right-aligned fan RPM values"> | Reports both fan speeds with native left/right alignment. |
 
-The paired-wave animation sends a left mote followed by a right mote after 0.45 seconds, then repeats every 3.6 seconds. Color moves continuously from blue through cyan, green, and yellow to red.
+The paired-wave animation sends a left mote followed by a right mote after 0.45 seconds, then repeats every 3.6 seconds. Color moves continuously from healthy green at 45 °C through yellow to danger red at 80 °C.
 
 ## Choose a fan mode
 

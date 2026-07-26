@@ -19,14 +19,15 @@ final class TemperaturePresentationTests: XCTestCase {
     }
 
     func testTemperaturePaletteInterpolatesAndClamps() {
-        let cold = TemperaturePalette.color(for: 35)
-        let cyan = TemperaturePalette.color(for: 50)
-        let midpoint = TemperaturePalette.color(for: 57.5)
+        let healthy = TemperaturePalette.color(for: 45)
+        let warm = TemperaturePalette.color(for: 62.5)
+        let dangerous = TemperaturePalette.color(for: 80)
 
-        XCTAssertEqual(TemperaturePalette.color(for: 0), cold)
-        XCTAssertEqual(TemperaturePalette.color(for: 100), TemperaturePalette.color(for: 95))
-        XCTAssertEqual(cyan.red, Double(0x43) / 255, accuracy: 0.001)
-        XCTAssertEqual(midpoint.red, Double(0x43 + 0x75) / 2 / 255, accuracy: 0.001)
+        XCTAssertEqual(TemperaturePalette.color(for: 0), healthy)
+        XCTAssertEqual(TemperaturePalette.color(for: 100), dangerous)
+        XCTAssertEqual(healthy.green, Double(0xE0) / 255, accuracy: 0.001)
+        XCTAssertEqual(warm.red, 1, accuracy: 0.001)
+        XCTAssertEqual(dangerous.green, Double(0x45) / 255, accuracy: 0.001)
         XCTAssertEqual(TemperaturePalette.mercuryTop(for: 35), 12, accuracy: 0.001)
         XCTAssertEqual(TemperaturePalette.mercuryTop(for: 95), 17, accuracy: 0.001)
     }

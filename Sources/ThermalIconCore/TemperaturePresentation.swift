@@ -12,14 +12,12 @@ public struct ThermalColor: Equatable, Sendable {
 }
 
 public enum TemperaturePalette {
-    // 35–95 °C spans the useful CPU range; outliers clamp instead of leaving the palette.
+    // 45 °C is healthy and 80 °C is already dangerous, so the palette reaches both endpoints early.
     public static func color(for celsius: Double) -> ThermalColor {
-        let value = celsius.isFinite ? min(max(celsius, 35), 95) : 95
+        let value = celsius.isFinite ? min(max(celsius, 45), 80) : 80
         switch value {
-        case ..<50: return blend(blue, cyan, fraction: (value - 35) / 15)
-        case ..<65: return blend(cyan, green, fraction: (value - 50) / 15)
-        case ..<78: return blend(green, yellow, fraction: (value - 65) / 13)
-        default: return blend(yellow, red, fraction: (value - 78) / 17)
+        case ..<62.5: return blend(green, yellow, fraction: (value - 45) / 17.5)
+        default: return blend(yellow, red, fraction: (value - 62.5) / 17.5)
         }
     }
 
@@ -28,8 +26,6 @@ public enum TemperaturePalette {
         return 12 + (value - 35) / 60 * 5
     }
 
-    private static let blue = rgb(0x4D, 0xA3, 0xFF)
-    private static let cyan = rgb(0x43, 0xD9, 0xD1)
     private static let green = rgb(0x75, 0xE0, 0x6B)
     private static let yellow = rgb(0xFF, 0xD4, 0x52)
     private static let red = rgb(0xFF, 0x45, 0x3A)
