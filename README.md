@@ -8,7 +8,7 @@ Native macOS menu-bar temperature monitoring with animated thermal feedback and 
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](Package.swift)
 [![GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-2563eb)](LICENSE)
 
-<p align="center"><video src="https://github.com/user-attachments/assets/22b57eab-c3c5-46a2-bead-fd3f0e60a7dc" width="100%"></p>
+<p align="center"><video src="https://github.com/user-attachments/assets/22b57eab-c3c5-46a2-bead-fd3f0e60a7dc" height="100"></p>
 
 ## Screenshots
 
