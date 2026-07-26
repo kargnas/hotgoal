@@ -8,11 +8,7 @@ Native macOS menu-bar temperature monitoring with animated thermal feedback and 
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](Package.swift)
 [![GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-2563eb)](LICENSE)
 
-<a href="docs/thermal-motes.mp4">
-  <img src="docs/thermal-icon-hero.png" width="800" alt="Animated green thermometer with paired thermal motes">
-</a>
-
-<p align="center"><a href="docs/thermal-motes.mp4">Play the MP4: 800×450 · H.264 · 30 fps</a></p>
+<p align="center"><video src="https://github.com/user-attachments/assets/22b57eab-c3c5-46a2-bead-fd3f0e60a7dc" width="100%"></p>
 
 ## Screenshots
 
