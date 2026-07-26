@@ -2,8 +2,6 @@
 
 Native macOS menu-bar temperature monitoring with animated thermal feedback and four guarded fan modes.
 
-[**Watch the 3.6-second demo →**](docs/thermal-motes.mp4) · [Screenshots ↓](#screenshots)
-
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111827?logo=apple)](https://www.apple.com/macos/)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](Package.swift)
 [![GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-2563eb)](LICENSE)
