@@ -7,9 +7,8 @@ private final class FanService: @unchecked Sendable {
     private let lock = NSRecursiveLock()
     private let timerQueue = DispatchQueue(label: "as.kargn.ThermalIcon.FanHelper.temperature-control")
     private var controlTimer: DispatchSourceTimer?
-    private var activeMode: FanControlMode?
-    private var targetStabilizer = FanTargetStabilizer()
-    private var hotThreshold = TemperatureThresholds.defaultHot
+    private var activeControl: FanControl?
+    private var stabilizer = FanTargetStabilizer()
 
     init(reader: SMCReader) {
         self.reader = reader
@@ -18,19 +17,15 @@ private final class FanService: @unchecked Sendable {
     func status() -> Result<Data, Error> {
         locked {
             Result {
-                try FanStatusCodec.encode(FanControlStatus(mode: activeMode, fans: reader.fanSnapshots()))
+                try FanControlCodec.encode(FanControlStatus(control: activeControl, fans: reader.fanSnapshots()))
             }
         }
     }
 
-    func setMode(mode rawMode: String, hotThreshold: Double) -> Result<Void, Error> {
+    func setControl(_ data: Data) -> Result<Void, Error> {
         locked {
             Result {
-                guard let mode = FanControlMode(rawValue: rawMode),
-                      TemperatureThresholds.hotChoices.contains(hotThreshold) else {
-                    throw SMCReader.ReaderError.invalidMode
-                }
-                try applyModeLocked(mode, hotThreshold: hotThreshold)
+                try applyControlLocked(FanControlCodec.decodeControl(data))
             }
         }
     }
@@ -39,18 +34,17 @@ private final class FanService: @unchecked Sendable {
         locked { Result { try restoreAutomaticLocked() } }
     }
 
-    private func applyModeLocked(_ mode: FanControlMode, hotThreshold: Double) throws {
-        activeMode = nil
+    private func applyControlLocked(_ control: FanControl) throws {
+        activeControl = nil
         cancelControlTimerLocked()
-        targetStabilizer = FanTargetStabilizer()
+        stabilizer = FanTargetStabilizer()
 
         do {
-            self.hotThreshold = hotThreshold
-            try reconcileLocked(mode: mode)
-            activeMode = mode
-            if mode.requiresContinuousControl { startControlTimerLocked() }
+            try reconcileLocked(control)
+            activeControl = control
+            if control.requiresContinuousControl { startControlTimerLocked() }
         } catch {
-            activeMode = nil
+            activeControl = nil
             try? reader.restoreAutomatic()
             throw error
         }
@@ -58,12 +52,12 @@ private final class FanService: @unchecked Sendable {
 
     private func reconcile() {
         locked {
-            guard let mode = activeMode, mode.requiresContinuousControl else { return }
+            guard let control = activeControl, control.requiresContinuousControl else { return }
             do {
-                try reconcileLocked(mode: mode)
+                try reconcileLocked(control)
             } catch {
                 NSLog("ThermalIconFanHelper fan control failed: \(error)")
-                activeMode = nil
+                activeControl = nil
                 cancelControlTimerLocked()
                 do {
                     try reader.restoreAutomatic()
@@ -74,15 +68,15 @@ private final class FanService: @unchecked Sendable {
         }
     }
 
-    private func reconcileLocked(mode: FanControlMode) throws {
-        switch mode {
-        case .muted:
+    private func reconcileLocked(_ control: FanControl) throws {
+        switch control {
+        case .noise(.muted, _):
             try reader.restoreAutomatic()
             return
-        case .ultra:
+        case .noise(.ultra, _):
             try reader.setFanPercentage(100)
             return
-        case .quiet, .standard:
+        case .noise, .targetTemperature:
             break
         }
 
@@ -91,25 +85,23 @@ private final class FanService: @unchecked Sendable {
         }
         let fans = try reader.fanSnapshots()
         guard !fans.isEmpty else { throw SMCReader.ReaderError.invalidFan }
-        let effectiveTemperature = targetStabilizer.effectiveTemperature(for: temperature)
-        let requestedTargets = fans.map { fan in
-            if mode == .quiet {
-                return QuietFanCurve.targetRPM(
+        let requestedTargets: [Int]
+        switch control {
+        case let .noise(mode, hotThreshold):
+            let effectiveTemperature = stabilizer.effectiveTemperature(for: temperature)
+            requestedTargets = fans.compactMap {
+                mode.targetRPM(
                     celsius: effectiveTemperature,
-                    minimum: fan.minimumRPM,
-                    maximum: fan.maximumRPM,
+                    minimum: $0.minimumRPM,
+                    maximum: $0.maximumRPM,
                     hotThreshold: hotThreshold
                 )
             }
-            return StandardFanCurve.targetRPM(
-                celsius: effectiveTemperature,
-                minimum: fan.minimumRPM,
-                maximum: fan.maximumRPM,
-                hotThreshold: hotThreshold
-            )
+        case let .targetTemperature(target):
+            requestedTargets = TargetTemperatureController.targets(celsius: temperature, target: target, fans: fans)
         }
         // At the 90 °C safety point, maximum fan speed must never wait for slew limiting.
-        let targets = targetStabilizer.limitTargets(
+        let targets = stabilizer.limitTargets(
             requestedTargets,
             at: ProcessInfo.processInfo.systemUptime,
             forceImmediate: temperature >= 90
@@ -133,9 +125,9 @@ private final class FanService: @unchecked Sendable {
     }
 
     private func restoreAutomaticLocked() throws {
-        activeMode = nil
+        activeControl = nil
         cancelControlTimerLocked()
-        targetStabilizer = FanTargetStabilizer()
+        stabilizer = FanTargetStabilizer()
         try reader.restoreAutomatic()
     }
 
@@ -160,18 +152,8 @@ private final class ExportedFanService: NSObject, FanHelperProtocol {
         }
     }
 
-    func setMode(
-        mode: String,
-        hotThreshold: Double,
-        reply: @escaping (Bool, String?) -> Void
-    ) {
-        send(
-            service.setMode(
-                mode: mode,
-                hotThreshold: hotThreshold
-            ),
-            reply: reply
-        )
+    func setControl(_ control: Data, reply: @escaping (Bool, String?) -> Void) {
+        send(service.setControl(control), reply: reply)
     }
 
     private func send(_ result: Result<Void, Error>, reply: (Bool, String?) -> Void) {

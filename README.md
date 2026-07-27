@@ -1,6 +1,6 @@
 # Modern Mac Fan Control
 
-Native macOS menu-bar temperature monitoring with animated thermal feedback and four guarded fan modes.
+Native macOS menu-bar temperature monitoring with animated thermal feedback and two guarded fan controllers.
 
 [**Watch the 3.6-second demo →**](docs/thermal-motes.mp4) · [Screenshots ↓](#screenshots)
 
@@ -24,7 +24,9 @@ Native macOS menu-bar temperature monitoring with animated thermal feedback and 
 
 The paired-wave animation sends a left mote followed by a right mote after 0.45 seconds, then repeats every 3.6 seconds. Color moves continuously from healthy green at 45 °C through yellow to danger red at 80 °C.
 
-## Choose a fan mode
+## Choose one fan controller
+
+**Noise Based** keeps the existing four presets:
 
 | Mode | Minimum | Behavior |
 |---|---:|---|
@@ -35,7 +37,9 @@ The paired-wave animation sends a left mote followed by a right mote after 0.45 
 
 Quiet and Standard ignore 3 °C cooldown fluctuations and lower RPM more slowly than they raise it, reducing audible fan hunting. Reaching 90 °C bypasses stabilization and requests maximum speed immediately.
 
-The app starts in Apple automatic mode. After you choose a mode, the helper remains the source of truth for the menu checkmark and reapplies every manual target after sleep or another SMC reset.
+**Target Temperature** offers 55–85 °C in 5 °C steps. The helper checks the CPU every two seconds and adjusts the existing SMC target by 50 RPM per degree of error. A ±0.5 °C deadband holds the current speed, while 90 °C always requests maximum speed.
+
+Only one controller can be active. The app starts in Apple automatic mode; after a selection, the helper remains the source of truth for both menu checkmarks and reapplies every manual target after sleep or another SMC reset.
 
 ## Stack at a glance
 
@@ -64,13 +68,13 @@ To enable fan control:
 2. Choose **Fan Control → Enable Fan Control…**.
 3. Approve **Thermal Icon.app** in **System Settings → General → Login Items & Extensions**.
 
-The helper accepts only the four modes above. Quitting the app or losing the helper connection restores Apple automatic control.
+The helper accepts only the controls listed above. Quitting the app or losing the helper connection restores Apple automatic control.
 
 ## Verify the build
 
 ```text
 $ swift test
-Executed 13 tests, with 0 failures
+Executed 11 tests, with 0 failures
 ```
 
 Licensed under [GPL-3.0-only](LICENSE). MIT notices for Stats, smctl, and MacFanControl remain in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

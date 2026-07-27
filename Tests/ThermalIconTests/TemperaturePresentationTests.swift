@@ -47,12 +47,13 @@ final class TemperaturePresentationTests: XCTestCase {
         )
     }
 
-    func testFanModesIncludeMutedBeforeStandardModes() {
-        XCTAssertEqual(FanControlMode.allCases, [.muted, .quiet, .standard, .ultra])
-        XCTAssertFalse(FanControlMode.muted.requiresContinuousControl)
-        XCTAssertTrue(FanControlMode.quiet.requiresContinuousControl)
-        XCTAssertTrue(FanControlMode.standard.requiresContinuousControl)
-        XCTAssertTrue(FanControlMode.ultra.requiresContinuousControl)
+    func testFanControlsAreMutuallyExclusiveAndManualControlsRepeat() {
+        XCTAssertEqual(NoiseMode.allCases, [.muted, .quiet, .standard, .ultra])
+        XCTAssertFalse(FanControl.noise(.muted, hotThreshold: 80).requiresContinuousControl)
+        XCTAssertTrue(FanControl.noise(.quiet, hotThreshold: 80).requiresContinuousControl)
+        XCTAssertTrue(FanControl.noise(.standard, hotThreshold: 80).requiresContinuousControl)
+        XCTAssertTrue(FanControl.noise(.ultra, hotThreshold: 80).requiresContinuousControl)
+        XCTAssertTrue(FanControl.targetTemperature(70).requiresContinuousControl)
     }
 
     func testInvalidPersistedThresholdsFallBackToDefaults() {
@@ -66,69 +67,37 @@ final class TemperaturePresentationTests: XCTestCase {
         )
     }
 
-    func testQuietCurveStaysAtMinimumUntilHotThenRamps() {
-        XCTAssertEqual(QuietFanCurve.percentage(celsius: 50, hotThreshold: 80), 0)
-        XCTAssertEqual(QuietFanCurve.percentage(celsius: 79.9, hotThreshold: 80), 0)
-        XCTAssertEqual(QuietFanCurve.percentage(celsius: 80, hotThreshold: 80), 0)
-        XCTAssertEqual(QuietFanCurve.percentage(celsius: 85, hotThreshold: 80), 50)
-        XCTAssertEqual(QuietFanCurve.percentage(celsius: 90, hotThreshold: 80), 100)
-
-        XCTAssertEqual(QuietFanCurve.percentage(celsius: 85, hotThreshold: 85), 0)
-        XCTAssertEqual(QuietFanCurve.percentage(celsius: 87.5, hotThreshold: 85), 50)
-        XCTAssertEqual(QuietFanCurve.percentage(celsius: 90, hotThreshold: 85), 100)
+    func testNoiseModesStayInsideHardwareRange() {
+        let cases: [(NoiseMode, Double, Int, Int, Int?)] = [
+            (.quiet, 20, 1_350, 6_000, 1_500),
+            (.quiet, 20, 1_500, 6_000, 1_500),
+            (.quiet, 20, 5_500, 6_000, 5_500),
+            (.quiet, 85, 1_500, 6_000, 3_750),
+            (.quiet, 95, 1_500, 6_000, 6_000),
+            (.standard, 20, 1_350, 5_800, 1_800),
+            (.standard, 80, 1_350, 5_800, 1_800),
+            (.standard, 85, 1_350, 5_800, 3_800),
+            (.standard, 90, 1_350, 5_800, 5_800),
+            (.standard, 50, 2_100, 6_000, 2_100),
+            (.standard, 50, 1_500, 1_700, 1_700),
+        ]
+        for (mode, celsius, minimum, maximum, expected) in cases {
+            XCTAssertEqual(
+                mode.targetRPM(celsius: celsius, minimum: minimum, maximum: maximum, hotThreshold: 80),
+                expected
+            )
+        }
     }
 
-    func testQuietCurveTargetsStayInsideHardwareRange() {
-        XCTAssertEqual(
-            QuietFanCurve.targetRPM(celsius: 20, minimum: 1_350, maximum: 6_000, hotThreshold: 80),
-            1_500
-        )
-        XCTAssertEqual(
-            QuietFanCurve.targetRPM(celsius: 20, minimum: 1_500, maximum: 6_000, hotThreshold: 80),
-            1_500
-        )
-        XCTAssertEqual(
-            QuietFanCurve.targetRPM(celsius: 20, minimum: 5_500, maximum: 6_000, hotThreshold: 80),
-            5_500
-        )
-        XCTAssertEqual(
-            QuietFanCurve.targetRPM(celsius: 85, minimum: 1_500, maximum: 6_000, hotThreshold: 80),
-            3_750
-        )
-        XCTAssertEqual(
-            QuietFanCurve.targetRPM(celsius: 95, minimum: 1_500, maximum: 6_000, hotThreshold: 80),
-            6_000
-        )
-    }
-
-    func testStandardCurveUses1800FloorThenRampsToMaximum() {
-        XCTAssertEqual(
-            StandardFanCurve.targetRPM(celsius: 20, minimum: 1_350, maximum: 5_800, hotThreshold: 80),
-            1_800
-        )
-        XCTAssertEqual(
-            StandardFanCurve.targetRPM(celsius: 80, minimum: 1_350, maximum: 5_800, hotThreshold: 80),
-            1_800
-        )
-        XCTAssertEqual(
-            StandardFanCurve.targetRPM(celsius: 85, minimum: 1_350, maximum: 5_800, hotThreshold: 80),
-            3_800
-        )
-        XCTAssertEqual(
-            StandardFanCurve.targetRPM(celsius: 90, minimum: 1_350, maximum: 5_800, hotThreshold: 80),
-            5_800
-        )
-    }
-
-    func testStandardCurveRespectsHigherHardwareMinimumAndMaximum() {
-        XCTAssertEqual(
-            StandardFanCurve.targetRPM(celsius: 50, minimum: 2_100, maximum: 6_000, hotThreshold: 80),
-            2_100
-        )
-        XCTAssertEqual(
-            StandardFanCurve.targetRPM(celsius: 50, minimum: 1_500, maximum: 1_700, hotThreshold: 80),
-            1_700
-        )
+    func testTargetTemperatureControllerConvergesAndKeepsSafetyMaximum() {
+        func snapshot(target: Int) -> FanSnapshot {
+            FanSnapshot(index: 0, currentRPM: target, minimumRPM: 1_500, maximumRPM: 6_000, targetRPM: target, mode: 1)
+        }
+        let fan = snapshot(target: 1_500)
+        XCTAssertEqual(TargetTemperatureController.targets(celsius: 80, target: 70, fans: [fan]), [2_000])
+        XCTAssertEqual(TargetTemperatureController.targets(celsius: 80, target: 70, fans: [snapshot(target: 2_000)]), [2_500])
+        XCTAssertEqual(TargetTemperatureController.targets(celsius: 70.4, target: 70, fans: [fan]), [1_500])
+        XCTAssertEqual(TargetTemperatureController.targets(celsius: 90, target: 70, fans: [fan]), [6_000])
     }
 
     func testFanTargetStabilizerHoldsCoolingAndLimitsRpmChanges() {
@@ -169,15 +138,22 @@ final class TemperaturePresentationTests: XCTestCase {
         XCTAssertTrue(validFan.isValid)
         XCTAssertFalse(invalidFan.isValid)
         XCTAssertEqual(
-            try FanStatusCodec.decodeValidated(
-                FanStatusCodec.encode(FanControlStatus(mode: .ultra, fans: [validFan]))
+            try FanControlCodec.decodeStatus(
+                FanControlCodec.encode(FanControlStatus(control: .noise(.ultra, hotThreshold: 80), fans: [validFan]))
             ),
-            FanControlStatus(mode: .ultra, fans: [validFan])
+            FanControlStatus(control: .noise(.ultra, hotThreshold: 80), fans: [validFan])
         )
         XCTAssertThrowsError(
-            try FanStatusCodec.decodeValidated(
-                FanStatusCodec.encode(FanControlStatus(mode: .ultra, fans: [invalidFan]))
+            try FanControlCodec.decodeStatus(
+                FanControlCodec.encode(FanControlStatus(control: .noise(.ultra, hotThreshold: 80), fans: [invalidFan]))
             )
+        )
+        XCTAssertEqual(
+            try FanControlCodec.decodeControl(FanControlCodec.encode(.targetTemperature(70))),
+            .targetTemperature(70)
+        )
+        XCTAssertThrowsError(
+            try FanControlCodec.decodeControl(JSONEncoder().encode(FanControl.targetTemperature(90)))
         )
     }
 

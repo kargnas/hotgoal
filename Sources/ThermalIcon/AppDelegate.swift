@@ -18,12 +18,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let fanStatusView = FanStatusMenuView()
     private let iconModeItem = NSMenuItem(title: "Icon", action: #selector(selectIconMode), keyEquivalent: "")
     private let numberModeItem = NSMenuItem(title: "Icon + Number", action: #selector(selectNumberMode), keyEquivalent: "")
+    private let noiseControlItem = NSMenuItem(title: "Noise Based", action: nil, keyEquivalent: "")
+    private let targetTemperatureControlItem = NSMenuItem(title: "Target Temperature", action: nil, keyEquivalent: "")
     private let helperActionItem = NSMenuItem(title: "Enable Fan Control…", action: #selector(handleHelperAction), keyEquivalent: "")
     private let reader: SMCReader?
     private let helperManager = FanHelperServiceManager()
     private let helperClient = FanHelperClient()
-    private var temperatureTimer: Timer?
-    private var fanTimer: Timer?
+    private var refreshTimer: Timer?
     private var temperature: Double?
     private var fans: [FanSnapshot] = []
     private var hasControllerConflict = false
@@ -31,8 +32,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var thresholds: TemperatureThresholds
     private var warmItems: [NSMenuItem] = []
     private var hotItems: [NSMenuItem] = []
-    private var fanModeItems: [FanControlMode: NSMenuItem] = [:]
-    private var reportedFanMode: FanControlMode?
+    private var noiseModeItems: [NoiseMode: NSMenuItem] = [:]
+    private var targetTemperatureItems: [NSMenuItem] = []
+    private var reportedFanControl: FanControl?
     private var fanStatusError: String?
     private var fanStatusRequestInFlight = false
     private var fanCommandInFlight = false
@@ -59,36 +61,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.setActivationPolicy(.accessory)
         helperClient.connectionLostHandler = { [weak self] in
             guard let self else { return }
-            fanConnectionGeneration += 1
-            reportedFanMode = nil
+            resetFanConnection(error: "Fan helper connection lost")
             fans = []
-            fanStatusError = "Fan helper connection lost"
-            fanStatusRequestInFlight = false
-            fanCommandInFlight = false
             updateFanItems()
         }
         configureStatusItem()
         configureMenu()
         refresh()
 
-        let temperatureTimer = Timer(
+        let refreshTimer = Timer(
             timeInterval: 0.5,
             target: self,
-            selector: #selector(refreshTemperature),
+            selector: #selector(refresh),
             userInfo: nil,
             repeats: true
         )
-        RunLoop.main.add(temperatureTimer, forMode: .common)
-        self.temperatureTimer = temperatureTimer
-
-        let fanTimer = Timer(timeInterval: 0.2, target: self, selector: #selector(refreshFans), userInfo: nil, repeats: true)
-        RunLoop.main.add(fanTimer, forMode: .common)
-        self.fanTimer = fanTimer
+        RunLoop.main.add(refreshTimer, forMode: .common)
+        self.refreshTimer = refreshTimer
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        temperatureTimer?.invalidate()
-        fanTimer?.invalidate()
+        refreshTimer?.invalidate()
         helperClient.disconnect()
     }
 
@@ -129,8 +122,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let thresholdItem = NSMenuItem(title: "Thresholds", action: nil, keyEquivalent: "")
         let thresholdMenu = NSMenu()
-        thresholdMenu.addItem(makeWarmThresholdMenu())
-        thresholdMenu.addItem(makeHotThresholdMenu())
+        let warmItem = NSMenuItem(title: "Warm", action: nil, keyEquivalent: "")
+        warmItems = addTemperatureChoices(
+            TemperatureThresholds.warmChoices,
+            to: warmItem,
+            action: #selector(selectWarmThreshold)
+        )
+        thresholdMenu.addItem(warmItem)
+        let hotItem = NSMenuItem(title: "Hot", action: nil, keyEquivalent: "")
+        hotItems = addTemperatureChoices(
+            TemperatureThresholds.hotChoices,
+            to: hotItem,
+            action: #selector(selectHotThreshold)
+        )
+        thresholdMenu.addItem(hotItem)
         thresholdItem.submenu = thresholdMenu
         menu.addItem(thresholdItem)
 
@@ -148,13 +153,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func makeFanControlMenu() -> NSMenuItem {
         let parent = NSMenuItem(title: "Fan Control", action: nil, keyEquivalent: "")
         let submenu = NSMenu()
-        for mode in FanControlMode.allCases {
+        let noiseMenu = NSMenu()
+        for mode in NoiseMode.allCases {
             let item = NSMenuItem(title: mode.title, action: #selector(selectFanMode), keyEquivalent: "")
             item.target = self
             item.representedObject = mode.rawValue
-            submenu.addItem(item)
-            fanModeItems[mode] = item
+            noiseMenu.addItem(item)
+            noiseModeItems[mode] = item
         }
+        noiseControlItem.submenu = noiseMenu
+        submenu.addItem(noiseControlItem)
+
+        targetTemperatureItems = addTemperatureChoices(
+            FanControl.targetTemperatureChoices,
+            to: targetTemperatureControlItem,
+            action: #selector(selectTargetTemperature)
+        )
+        submenu.addItem(targetTemperatureControlItem)
 
         submenu.addItem(.separator())
         helperActionItem.target = self
@@ -163,42 +178,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return parent
     }
 
-    private func makeWarmThresholdMenu() -> NSMenuItem {
-        let parent = NSMenuItem(title: "Warm", action: nil, keyEquivalent: "")
+    private func addTemperatureChoices(
+        _ values: [Double],
+        to parent: NSMenuItem,
+        action: Selector
+    ) -> [NSMenuItem] {
         let submenu = NSMenu()
-        warmItems = TemperatureThresholds.warmChoices.map { value in
-            let item = NSMenuItem(title: "\(Int(value)) °C", action: #selector(selectWarmThreshold), keyEquivalent: "")
+        let items = values.map { value in
+            let item = NSMenuItem(title: "\(Int(value)) °C", action: action, keyEquivalent: "")
             item.target = self
             item.tag = Int(value)
             submenu.addItem(item)
             return item
         }
         parent.submenu = submenu
-        return parent
-    }
-
-    private func makeHotThresholdMenu() -> NSMenuItem {
-        let parent = NSMenuItem(title: "Hot", action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
-        hotItems = TemperatureThresholds.hotChoices.map { value in
-            let item = NSMenuItem(title: "\(Int(value)) °C", action: #selector(selectHotThreshold), keyEquivalent: "")
-            item.target = self
-            item.tag = Int(value)
-            submenu.addItem(item)
-            return item
-        }
-        parent.submenu = submenu
-        return parent
+        return items
     }
 
     @objc private func refresh() {
-        refreshTemperature()
-        refreshFans()
-    }
-
-    @objc private func refreshTemperature() {
         temperature = reader?.cpuAverageTemperature()
         updateStatusItem()
+        refreshFans()
     }
 
     @objc private func refreshFans() {
@@ -206,12 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             withBundleIdentifier: "com.crystalidea.macsfancontrol"
         ).isEmpty
         if controllerConflict && !hasControllerConflict {
-            fanConnectionGeneration += 1
-            fanCommandInFlight = false
-            fanStatusRequestInFlight = false
-            helperClient.disconnect()
-            reportedFanMode = nil
-            fanStatusError = nil
+            resetFanConnection()
         }
         hasControllerConflict = controllerConflict
 
@@ -226,12 +221,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         if helperClient.isConnected {
-            fanConnectionGeneration += 1
-            fanStatusRequestInFlight = false
-            fanCommandInFlight = false
-            helperClient.disconnect()
+            resetFanConnection()
         }
-        reportedFanMode = nil
+        reportedFanControl = nil
         do {
             fans = try reader?.fanSnapshots() ?? []
             fanStatusError = nil
@@ -240,6 +232,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             fanStatusError = error.localizedDescription
         }
         updateFanItems()
+    }
+
+    private func resetFanConnection(error: String? = nil) {
+        fanConnectionGeneration += 1
+        fanStatusRequestInFlight = false
+        fanCommandInFlight = false
+        helperClient.disconnect()
+        reportedFanControl = nil
+        fanStatusError = error
     }
 
     private func refreshFanControlStatus() {
@@ -256,11 +257,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             switch result {
             case let .success(status):
                 fans = status.fans
-                reportedFanMode = status.mode
+                reportedFanControl = status.control
                 fanStatusError = nil
             case let .failure(error):
                 fans = []
-                reportedFanMode = nil
+                reportedFanControl = nil
                 fanStatusError = error.localizedDescription
             }
             updateFanItems()
@@ -298,9 +299,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let helperEnabled = helperManager.state == .enabled
         let controlsEnabled = helperEnabled && !fans.isEmpty && !hasControllerConflict && !fanCommandInFlight
         hotItems.forEach { $0.isEnabled = !fanCommandInFlight }
-        for (mode, item) in fanModeItems {
+        noiseControlItem.state = reportedFanControl?.noiseMode == nil ? .off : .on
+        targetTemperatureControlItem.state = reportedFanControl?.targetTemperature == nil ? .off : .on
+        for (mode, item) in noiseModeItems {
             item.isEnabled = controlsEnabled
-            item.state = reportedFanMode == mode ? .on : .off
+            item.state = reportedFanControl?.noiseMode == mode ? .on : .off
+        }
+        for item in targetTemperatureItems {
+            item.isEnabled = controlsEnabled
+            item.state = reportedFanControl?.targetTemperature == Double(item.tag) ? .on : .off
         }
 
         if hasControllerConflict {
@@ -423,24 +430,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func selectHotThreshold(_ sender: NSMenuItem) {
         guard !fanCommandInFlight else { return }
-        let modeToRefresh = reportedFanMode
+        let modeToRefresh = reportedFanControl?.noiseMode
         thresholds = TemperatureThresholds(warm: thresholds.warm, hot: Double(sender.tag))
         UserDefaults.standard.set(thresholds.hot, forKey: DefaultsKey.hotThreshold)
         updateChecks()
         updateStatusItem()
         if let modeToRefresh, modeToRefresh == .quiet || modeToRefresh == .standard {
-            applyFanMode(modeToRefresh)
+            applyFanControl(.noise(modeToRefresh, hotThreshold: thresholds.hot))
         }
     }
 
     @objc private func selectFanMode(_ sender: NSMenuItem) {
         guard !hasControllerConflict else { return }
         guard let rawMode = sender.representedObject as? String,
-              let mode = FanControlMode(rawValue: rawMode) else { return }
-        applyFanMode(mode)
+              let mode = NoiseMode(rawValue: rawMode) else { return }
+        applyFanControl(.noise(mode, hotThreshold: thresholds.hot))
     }
 
-    private func applyFanMode(_ mode: FanControlMode) {
+    @objc private func selectTargetTemperature(_ sender: NSMenuItem) {
+        applyFanControl(.targetTemperature(Double(sender.tag)))
+    }
+
+    private func applyFanControl(_ control: FanControl) {
         guard !hasControllerConflict,
               helperManager.state == .enabled,
               !fans.isEmpty,
@@ -448,7 +459,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         fanCommandInFlight = true
         let generation = fanConnectionGeneration
         updateFanItems()
-        helperClient.setMode(mode, hotThreshold: thresholds.hot) { [weak self] result in
+        helperClient.setControl(control) { [weak self] result in
             self?.finishFanCommand(result, generation: generation)
         }
     }
@@ -458,19 +469,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .notRegistered:
             do {
                 try helperManager.register()
-                if helperManager.state == .requiresApproval {
-                    helperManager.openApprovalSettings()
-                }
             } catch {
-                if helperManager.state == .requiresApproval {
-                    helperManager.openApprovalSettings()
-                } else {
-                    showError(error.localizedDescription)
-                }
+                if helperManager.state != .requiresApproval { showError(error.localizedDescription) }
             }
-        case .requiresApproval:
-            helperManager.openApprovalSettings()
-        case .enabled:
+            if helperManager.state == .requiresApproval { helperManager.openApprovalSettings() }
+        case .requiresApproval, .enabled:
             helperManager.openApprovalSettings()
         case .notFound:
             break
@@ -485,13 +488,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     ) {
         guard generation == fanConnectionGeneration else { return }
         fanCommandInFlight = false
-        switch result {
-        case .success:
-            refreshFans()
-        case let .failure(error):
-            refreshFans()
-            showError(error.localizedDescription)
-        }
+        refreshFans()
+        if case let .failure(error) = result { showError(error.localizedDescription) }
     }
 
     private func showError(_ message: String) {

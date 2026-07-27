@@ -12,7 +12,6 @@ public final class SMCReader {
         case invalidKey(String)
         case invalidFan
         case invalidPercentage
-        case invalidMode
         case temperatureUnavailable
         case rootRequired
         case unsupportedValueType(String)
@@ -26,7 +25,6 @@ public final class SMCReader {
             case let .invalidKey(key): "Invalid SMC key: \(key)"
             case .invalidFan: "Invalid or unavailable fan"
             case .invalidPercentage: "Fan percentage must be between 0 and 100"
-            case .invalidMode: "Unsupported fan control mode"
             case .temperatureUnavailable: "CPU temperature is unavailable"
             case .rootRequired: "Fan control requires root privileges"
             case let .unsupportedValueType(type): "Unsupported SMC value type: \(type)"

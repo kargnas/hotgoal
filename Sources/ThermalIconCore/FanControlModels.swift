@@ -44,7 +44,7 @@ public struct FanSnapshot: Codable, Equatable, Sendable {
     public var isManual: Bool { mode == 1 }
 }
 
-public enum FanControlMode: String, CaseIterable, Codable, Sendable {
+public enum NoiseMode: String, CaseIterable, Codable, Sendable {
     case muted
     case quiet
     case standard
@@ -54,71 +54,96 @@ public enum FanControlMode: String, CaseIterable, Codable, Sendable {
         rawValue.capitalized
     }
 
-    // Manual SMC targets can reset across sleep, so every manual mode needs reconciliation.
+    public func targetRPM(
+        celsius: Double,
+        minimum: Int,
+        maximum: Int,
+        hotThreshold: Double
+    ) -> Int? {
+        switch self {
+        case .muted:
+            return nil
+        case .ultra:
+            return maximum
+        case .quiet, .standard:
+            break
+        }
+
+        guard celsius.isFinite else { return maximum }
+        // Preserve the existing acoustic floors while sharing one curve for Quiet and Standard.
+        let floor = min(max(self == .quiet ? 1_500 : 1_800, minimum), maximum)
+        let percent = celsius >= 90 ? 1 : max(0, (celsius - hotThreshold) / (90 - hotThreshold))
+        return min(max(Int((Double(floor) + Double(maximum - floor) * percent).rounded()), floor), maximum)
+    }
+}
+
+public enum FanControl: Codable, Equatable, Sendable {
+    case noise(NoiseMode, hotThreshold: Double)
+    case targetTemperature(Double)
+
+    public static let targetTemperatureChoices = stride(from: 55.0, through: 85.0, by: 5.0).map { $0 }
+
+    public var isValid: Bool {
+        switch self {
+        case let .noise(_, hotThreshold):
+            TemperatureThresholds.hotChoices.contains(hotThreshold)
+        case let .targetTemperature(target):
+            Self.targetTemperatureChoices.contains(target)
+        }
+    }
+
+    // Manual SMC targets can reset across sleep, so every non-muted control is reconciled.
     public var requiresContinuousControl: Bool {
-        self != .muted
+        if case .noise(.muted, _) = self { return false }
+        return true
+    }
+
+    public var noiseMode: NoiseMode? {
+        guard case let .noise(mode, _) = self else { return nil }
+        return mode
+    }
+
+    public var targetTemperature: Double? {
+        guard case let .targetTemperature(target) = self else { return nil }
+        return target
     }
 }
 
 public struct FanControlStatus: Codable, Equatable, Sendable {
-    public let mode: FanControlMode?
+    public let control: FanControl?
     public let fans: [FanSnapshot]
 
-    public init(mode: FanControlMode?, fans: [FanSnapshot]) {
-        self.mode = mode
+    public init(control: FanControl?, fans: [FanSnapshot]) {
+        self.control = control
         self.fans = fans
     }
 
     public var isValid: Bool {
-        fans.allSatisfy(\.isValid)
+        control?.isValid != false && fans.allSatisfy(\.isValid)
     }
 }
 
-public enum QuietFanCurve {
-    // Keep steady airflow while preserving a clear acoustic gap below Standard.
-    public static let minimumRPM = 1_500
+public enum TargetTemperatureController {
+    public static let deadband = 0.5
+    // The helper runs every two seconds; 50 RPM/°C reacts within seconds without large audible jumps.
+    public static let rpmPerDegreePerCycle = 50.0
 
-    public static func percentage(celsius: Double, hotThreshold: Double) -> Int {
-        guard celsius.isFinite else { return 100 }
-        if celsius >= 90 { return 100 }
-        if celsius <= hotThreshold { return 0 }
-
-        let span = 90 - hotThreshold
-        guard span > 0 else { return 100 }
-        return Int((100 * (celsius - hotThreshold) / span).rounded())
-    }
-
-    public static func targetRPM(
+    public static func targets(
         celsius: Double,
-        minimum: Int,
-        maximum: Int,
-        hotThreshold: Double
-    ) -> Int {
-        let floor = min(max(Self.minimumRPM, minimum), maximum)
-        let percent = percentage(celsius: celsius, hotThreshold: hotThreshold)
-        return rampedTargetRPM(floor: floor, maximum: maximum, percent: percent)
+        target: Double,
+        fans: [FanSnapshot]
+    ) -> [Int] {
+        guard celsius.isFinite else { return fans.map(\.maximumRPM) }
+        if celsius >= 90 { return fans.map(\.maximumRPM) }
+        let error = celsius - target
+        let adjustment = abs(error) <= deadband ? 0 : Int((error * rpmPerDegreePerCycle).rounded())
+        return fans.map { fan in
+            // SMC's last target is the integral state; no second copy can drift out of sync.
+            // ponytail: add a derivative term only if measured thermal traces show sustained oscillation.
+            let currentTarget = fan.targetRPM.flatMap { $0 >= fan.minimumRPM ? $0 : nil } ?? fan.currentRPM
+            return min(max(currentTarget + adjustment, fan.minimumRPM), fan.maximumRPM)
+        }
     }
-}
-
-public enum StandardFanCurve {
-    public static let minimumRPM = 1_800
-
-    public static func targetRPM(
-        celsius: Double,
-        minimum: Int,
-        maximum: Int,
-        hotThreshold: Double
-    ) -> Int {
-        let floor = min(max(Self.minimumRPM, minimum), maximum)
-        let percent = QuietFanCurve.percentage(celsius: celsius, hotThreshold: hotThreshold)
-        return rampedTargetRPM(floor: floor, maximum: maximum, percent: percent)
-    }
-}
-
-private func rampedTargetRPM(floor: Int, maximum: Int, percent: Int) -> Int {
-    guard maximum > floor else { return maximum }
-    let target = Double(floor) + Double(maximum - floor) * Double(percent) / 100
-    return min(max(Int(target.rounded()), floor), maximum)
 }
 
 public struct FanTargetStabilizer: Sendable {
@@ -177,29 +202,37 @@ public struct FanTargetStabilizer: Sendable {
     }
 }
 
-public enum FanStatusCodec {
+public enum FanControlCodec {
+    public static func encode(_ control: FanControl) throws -> Data {
+        guard control.isValid else { throw FanControlError.invalidControl }
+        return try JSONEncoder().encode(control)
+    }
+
+    public static func decodeControl(_ data: Data) throws -> FanControl {
+        let control = try JSONDecoder().decode(FanControl.self, from: data)
+        guard control.isValid else { throw FanControlError.invalidControl }
+        return control
+    }
+
     public static func encode(_ status: FanControlStatus) throws -> Data {
         try JSONEncoder().encode(status)
     }
 
-    public static func decodeValidated(_ data: Data) throws -> FanControlStatus {
+    public static func decodeStatus(_ data: Data) throws -> FanControlStatus {
         let status = try JSONDecoder().decode(FanControlStatus.self, from: data)
         guard status.isValid else {
-            throw FanStatusError.invalidSnapshot
+            throw FanControlError.invalidSnapshot
         }
         return status
     }
 }
 
-public enum FanStatusError: Error, Equatable, Sendable {
+public enum FanControlError: Error, Equatable, Sendable {
+    case invalidControl
     case invalidSnapshot
 }
 
 @objc public protocol FanHelperProtocol {
     func getStatus(reply: @escaping (Data?, String?) -> Void)
-    func setMode(
-        mode: String,
-        hotThreshold: Double,
-        reply: @escaping (Bool, String?) -> Void
-    )
+    func setControl(_ control: Data, reply: @escaping (Bool, String?) -> Void)
 }

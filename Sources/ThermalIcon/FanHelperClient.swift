@@ -28,7 +28,7 @@ final class FanHelperClient {
                         guard let data, message == nil else {
                             throw ClientError.helper(message ?? "Fan status unavailable")
                         }
-                        completion(.success(try FanStatusCodec.decodeValidated(data)))
+                        completion(.success(try FanControlCodec.decodeStatus(data)))
                     } catch {
                         completion(.failure(error))
                     }
@@ -39,17 +39,14 @@ final class FanHelperClient {
         }
     }
 
-    func setMode(
-        _ mode: FanControlMode,
-        hotThreshold: Double,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        perform(completion: completion) { proxy, reply in
-            proxy.setMode(
-                mode: mode.rawValue,
-                hotThreshold: hotThreshold,
-                reply: reply
-            )
+    func setControl(_ control: FanControl, completion: @escaping (Result<Void, Error>) -> Void) {
+        do {
+            let data = try FanControlCodec.encode(control)
+            perform(completion: completion) { proxy, reply in
+                proxy.setControl(data, reply: reply)
+            }
+        } catch {
+            completion(.failure(error))
         }
     }
 
