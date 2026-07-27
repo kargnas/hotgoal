@@ -435,7 +435,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         UserDefaults.standard.set(thresholds.hot, forKey: DefaultsKey.hotThreshold)
         updateChecks()
         updateStatusItem()
-        if let modeToRefresh, modeToRefresh == .quiet || modeToRefresh == .standard {
+        if let modeToRefresh, modeToRefresh == .quiet {
             applyFanControl(.noise(modeToRefresh, hotThreshold: thresholds.hot))
         }
     }

@@ -70,7 +70,7 @@ private final class FanService: @unchecked Sendable {
 
     private func reconcileLocked(_ control: FanControl) throws {
         switch control {
-        case .noise(.muted, _):
+        case .noise(.systemDefault, _):
             try reader.restoreAutomatic()
             return
         case .noise(.ultra, _):

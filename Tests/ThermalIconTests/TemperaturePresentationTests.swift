@@ -48,10 +48,11 @@ final class TemperaturePresentationTests: XCTestCase {
     }
 
     func testFanControlsAreMutuallyExclusiveAndManualControlsRepeat() {
-        XCTAssertEqual(NoiseMode.allCases, [.muted, .quiet, .standard, .ultra])
-        XCTAssertFalse(FanControl.noise(.muted, hotThreshold: 80).requiresContinuousControl)
+        XCTAssertEqual(NoiseMode.allCases, [.systemDefault, .quiet, .ultra])
+        XCTAssertEqual(NoiseMode.systemDefault.title, "System Default")
+        XCTAssertEqual(FanControl.targetTemperatureChoices, [40, 45, 50, 55, 60, 65, 70, 75, 80, 85])
+        XCTAssertFalse(FanControl.noise(.systemDefault, hotThreshold: 80).requiresContinuousControl)
         XCTAssertTrue(FanControl.noise(.quiet, hotThreshold: 80).requiresContinuousControl)
-        XCTAssertTrue(FanControl.noise(.standard, hotThreshold: 80).requiresContinuousControl)
         XCTAssertTrue(FanControl.noise(.ultra, hotThreshold: 80).requiresContinuousControl)
         XCTAssertTrue(FanControl.targetTemperature(70).requiresContinuousControl)
     }
@@ -74,12 +75,6 @@ final class TemperaturePresentationTests: XCTestCase {
             (.quiet, 20, 5_500, 6_000, 5_500),
             (.quiet, 85, 1_500, 6_000, 3_750),
             (.quiet, 95, 1_500, 6_000, 6_000),
-            (.standard, 20, 1_350, 5_800, 1_800),
-            (.standard, 80, 1_350, 5_800, 1_800),
-            (.standard, 85, 1_350, 5_800, 3_800),
-            (.standard, 90, 1_350, 5_800, 5_800),
-            (.standard, 50, 2_100, 6_000, 2_100),
-            (.standard, 50, 1_500, 1_700, 1_700),
         ]
         for (mode, celsius, minimum, maximum, expected) in cases {
             XCTAssertEqual(

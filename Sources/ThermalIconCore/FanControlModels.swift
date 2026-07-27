@@ -45,13 +45,12 @@ public struct FanSnapshot: Codable, Equatable, Sendable {
 }
 
 public enum NoiseMode: String, CaseIterable, Codable, Sendable {
-    case muted
+    case systemDefault
     case quiet
-    case standard
     case ultra
 
     public var title: String {
-        rawValue.capitalized
+        self == .systemDefault ? "System Default" : rawValue.capitalized
     }
 
     public func targetRPM(
@@ -61,17 +60,16 @@ public enum NoiseMode: String, CaseIterable, Codable, Sendable {
         hotThreshold: Double
     ) -> Int? {
         switch self {
-        case .muted:
+        case .systemDefault:
             return nil
         case .ultra:
             return maximum
-        case .quiet, .standard:
+        case .quiet:
             break
         }
 
         guard celsius.isFinite else { return maximum }
-        // Preserve the existing acoustic floors while sharing one curve for Quiet and Standard.
-        let floor = min(max(self == .quiet ? 1_500 : 1_800, minimum), maximum)
+        let floor = min(max(1_500, minimum), maximum)
         let percent = celsius >= 90 ? 1 : max(0, (celsius - hotThreshold) / (90 - hotThreshold))
         return min(max(Int((Double(floor) + Double(maximum - floor) * percent).rounded()), floor), maximum)
     }
@@ -81,7 +79,7 @@ public enum FanControl: Codable, Equatable, Sendable {
     case noise(NoiseMode, hotThreshold: Double)
     case targetTemperature(Double)
 
-    public static let targetTemperatureChoices = stride(from: 55.0, through: 85.0, by: 5.0).map { $0 }
+    public static let targetTemperatureChoices = stride(from: 40.0, through: 85.0, by: 5.0).map { $0 }
 
     public var isValid: Bool {
         switch self {
@@ -92,9 +90,9 @@ public enum FanControl: Codable, Equatable, Sendable {
         }
     }
 
-    // Manual SMC targets can reset across sleep, so every non-muted control is reconciled.
+    // Manual SMC targets can reset across sleep, so every non-default control is reconciled.
     public var requiresContinuousControl: Bool {
-        if case .noise(.muted, _) = self { return false }
+        if case .noise(.systemDefault, _) = self { return false }
         return true
     }
 
