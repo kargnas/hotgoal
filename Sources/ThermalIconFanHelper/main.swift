@@ -8,6 +8,7 @@ private final class FanService: @unchecked Sendable {
     private let timerQueue = DispatchQueue(label: "as.kargn.ThermalIcon.FanHelper.temperature-control")
     private var controlTimer: DispatchSourceTimer?
     private var activeControl: FanControl?
+    private var temperatureAverage = TemperatureAverage()
     private var stabilizer = FanTargetStabilizer()
 
     init(reader: SMCReader) {
@@ -37,6 +38,7 @@ private final class FanService: @unchecked Sendable {
     private func applyControlLocked(_ control: FanControl) throws {
         activeControl = nil
         cancelControlTimerLocked()
+        temperatureAverage = TemperatureAverage()
         stabilizer = FanTargetStabilizer()
 
         do {
@@ -83,12 +85,21 @@ private final class FanService: @unchecked Sendable {
         guard let temperature = reader.cpuAverageTemperature(), temperature.isFinite else {
             throw SMCReader.ReaderError.temperatureUnavailable
         }
+        let controlTemperature = temperatureAverage.append(
+            temperature,
+            at: ProcessInfo.processInfo.systemUptime
+        )
+        if temperature >= 90 {
+            try reader.setFanPercentage(100)
+            return
+        }
+        guard let controlTemperature else { return }
         let fans = try reader.fanSnapshots()
         guard !fans.isEmpty else { throw SMCReader.ReaderError.invalidFan }
         let requestedTargets: [Int]
         switch control {
         case let .noise(mode, hotThreshold):
-            let effectiveTemperature = stabilizer.effectiveTemperature(for: temperature)
+            let effectiveTemperature = stabilizer.effectiveTemperature(for: controlTemperature)
             requestedTargets = fans.compactMap {
                 mode.targetRPM(
                     celsius: effectiveTemperature,
@@ -98,20 +109,20 @@ private final class FanService: @unchecked Sendable {
                 )
             }
         case let .targetTemperature(target):
-            requestedTargets = TargetTemperatureController.targets(celsius: temperature, target: target, fans: fans)
+            requestedTargets = TargetTemperatureController.targets(celsius: controlTemperature, target: target, fans: fans)
         }
         // At the 90 °C safety point, maximum fan speed must never wait for slew limiting.
         let targets = stabilizer.limitTargets(
             requestedTargets,
             at: ProcessInfo.processInfo.systemUptime,
-            forceImmediate: temperature >= 90
+            forceImmediate: controlTemperature >= 90
         )
         try reader.setFanTargets(targets)
     }
 
     private func startControlTimerLocked() {
         let timer = DispatchSource.makeTimerSource(queue: timerQueue)
-        timer.schedule(deadline: .now() + 2, repeating: 2, leeway: .milliseconds(250))
+        timer.schedule(deadline: .now() + 1, repeating: 1, leeway: .milliseconds(250))
         timer.setEventHandler { [weak self] in
             self?.reconcile()
         }
@@ -127,6 +138,7 @@ private final class FanService: @unchecked Sendable {
     private func restoreAutomaticLocked() throws {
         activeControl = nil
         cancelControlTimerLocked()
+        temperatureAverage = TemperatureAverage()
         stabilizer = FanTargetStabilizer()
         try reader.restoreAutomatic()
     }

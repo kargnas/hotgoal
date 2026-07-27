@@ -89,11 +89,20 @@ final class TemperaturePresentationTests: XCTestCase {
             FanSnapshot(index: 0, currentRPM: target, minimumRPM: 1_500, maximumRPM: 6_000, targetRPM: target, mode: 1)
         }
         let fan = snapshot(target: 1_500)
-        XCTAssertEqual(TargetTemperatureController.targets(celsius: 80, target: 70, fans: [fan]), [1_700])
-        XCTAssertEqual(TargetTemperatureController.targets(celsius: 80, target: 70, fans: [snapshot(target: 2_000)]), [2_200])
+        XCTAssertEqual(TargetTemperatureController.targets(celsius: 80, target: 70, fans: [fan]), [1_600])
+        XCTAssertEqual(TargetTemperatureController.targets(celsius: 80, target: 70, fans: [snapshot(target: 2_000)]), [2_100])
         XCTAssertEqual(TargetTemperatureController.targets(celsius: 70.4, target: 70, fans: [fan]), [1_500])
         XCTAssertEqual(TargetTemperatureController.targets(celsius: 69, target: 70, fans: [snapshot(target: 3_000)]), [1_500])
         XCTAssertEqual(TargetTemperatureController.targets(celsius: 90, target: 70, fans: [fan]), [6_000])
+    }
+
+    func testTemperatureAverageNeedsTenConsecutiveOneSecondSamples() {
+        var average = TemperatureAverage()
+        for sample in 1..<10 {
+            XCTAssertNil(average.append(Double(sample), at: Double(sample)))
+        }
+        XCTAssertEqual(average.append(10, at: 10), 5.5)
+        XCTAssertNil(average.append(20, at: 20))
     }
 
     func testFanTargetStabilizerHoldsCoolingAndLimitsRpmChanges() {
@@ -177,8 +186,9 @@ final class TemperaturePresentationTests: XCTestCase {
         let contents = try String(contentsOf: XCTUnwrap(
             FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil).first
         ), encoding: .utf8)
-        XCTAssertEqual(contents.split(separator: "\n").count, 3)
+        XCTAssertEqual(contents.split(separator: "\n").count, 4)
         XCTAssertTrue(contents.contains("40.0,45.0"))
+        XCTAssertTrue(contents.contains("40.0,44.0"))
         XCTAssertTrue(contents.contains("40.0,43.0"))
         XCTAssertTrue(try log.contents().contains("target_celsius,actual_celsius"))
     }

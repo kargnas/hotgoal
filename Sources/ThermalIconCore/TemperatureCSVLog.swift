@@ -1,7 +1,7 @@
 import Foundation
 
 public final class TemperatureCSVLog {
-    public static let sampleInterval: TimeInterval = 2
+    public static let sampleInterval: TimeInterval = 1
     public static let retention: TimeInterval = 3 * 24 * 60 * 60
     public let directoryURL: URL
 

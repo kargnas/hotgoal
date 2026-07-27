@@ -123,8 +123,8 @@ public struct FanControlStatus: Codable, Equatable, Sendable {
 
 public enum TargetTemperatureController {
     public static let deadband = 0.5
-    // The helper runs every two seconds; small upward steps avoid sudden acoustic changes.
-    public static let rpmPerDegreePerCycle = 20.0
+    // The helper runs every second; small upward steps avoid sudden acoustic changes.
+    public static let rpmPerDegreePerCycle = 10.0
 
     public static func targets(
         celsius: Double,
@@ -142,6 +142,28 @@ public enum TargetTemperatureController {
             let currentTarget = fan.targetRPM.flatMap { $0 >= fan.minimumRPM ? $0 : nil } ?? fan.currentRPM
             return min(max(currentTarget + adjustment, fan.minimumRPM), fan.maximumRPM)
         }
+    }
+}
+
+public struct TemperatureAverage: Sendable {
+    public static let sampleCount = 10
+    public static let maximumSampleGap: TimeInterval = 2
+
+    private var samples: [Double] = []
+    private var previousSampleTime: TimeInterval?
+
+    public init() {}
+
+    public mutating func append(_ celsius: Double, at time: TimeInterval) -> Double? {
+        guard celsius.isFinite else { return nil }
+        if let previousSampleTime, time - previousSampleTime > Self.maximumSampleGap {
+            samples.removeAll(keepingCapacity: true)
+        }
+        previousSampleTime = time
+        samples.append(celsius)
+        if samples.count > Self.sampleCount { samples.removeFirst() }
+        guard samples.count == Self.sampleCount else { return nil }
+        return samples.reduce(0, +) / Double(samples.count)
     }
 }
 

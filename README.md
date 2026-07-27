@@ -36,11 +36,11 @@ The paired-wave animation sends a left mote followed by a right mote after 0.45 
 
 Quiet ignores 3 °C cooldown fluctuations and lowers RPM more slowly than it raises it, reducing audible fan hunting. Reaching 90 °C bypasses stabilization and requests maximum speed immediately.
 
-**Target Temperature** offers 40–85 °C in 5 °C steps. The helper checks the CPU every two seconds and raises the existing SMC target by 20 RPM per degree of error, capped at 200 RPM per cycle. A ±0.5 °C deadband holds the current speed; dropping below it immediately requests minimum RPM, while 90 °C always requests maximum speed.
+**Target Temperature** offers 40–85 °C in 5 °C steps. The helper samples the CPU every second and controls from the latest 10-sample average. It raises the existing SMC target by 10 RPM per degree of error, capped at 100 RPM per sample. A ±0.5 °C deadband holds the current speed; dropping below it immediately requests minimum RPM, while an instantaneous 90 °C reading always requests maximum speed.
 
 Only one controller can be active. The app starts in Apple automatic mode; after a selection, the helper remains the source of truth for both menu checkmarks and reapplies every manual target after sleep or another SMC reset.
 
-While Target Temperature is active, the app writes `timestamp,target_celsius,actual_celsius` every two seconds to daily CSV files in `~/Library/Logs/ThermalIcon/`. Files whose last sample is older than 72 hours are deleted automatically.
+While Target Temperature is active, the app writes `timestamp,target_celsius,actual_celsius` every second to daily CSV files in `~/Library/Logs/ThermalIcon/`. Files whose last sample is older than 72 hours are deleted automatically.
 
 Choose **Temperature Log…** from the main menu to read the retained CSV files in a native window. Fan status rows show only the RPM values.
 
@@ -77,7 +77,7 @@ The helper accepts only the controls listed above. Quitting the app or losing th
 
 ```text
 $ swift test
-Executed 12 tests, with 0 failures
+Executed 13 tests, with 0 failures
 ```
 
 Licensed under [GPL-3.0-only](LICENSE). MIT notices for Stats, smctl, and MacFanControl remain in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
