@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let reader: SMCReader?
     private let helperManager = FanHelperServiceManager()
     private let helperClient = FanHelperClient()
+    private let temperatureLog = TemperatureCSVLog()
     private var refreshTimer: Timer?
     private var temperature: Double?
     private var fans: [FanSnapshot] = []
@@ -259,6 +260,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 fans = status.fans
                 reportedFanControl = status.control
                 fanStatusError = nil
+                if let target = status.control?.targetTemperature, let temperature {
+                    temperatureLog.record(targetCelsius: target, actualCelsius: temperature)
+                }
             case let .failure(error):
                 fans = []
                 reportedFanControl = nil

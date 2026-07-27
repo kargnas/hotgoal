@@ -154,6 +154,34 @@ final class TemperaturePresentationTests: XCTestCase {
         )
     }
 
+    func testTemperatureLogThrottlesSamplesAndDeletesExpiredFiles() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let expired = directory.appendingPathComponent("expired.csv")
+        try Data().write(to: expired)
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        try FileManager.default.setAttributes(
+            [.modificationDate: now.addingTimeInterval(-TemperatureCSVLog.retention - 1)],
+            ofItemAtPath: expired.path
+        )
+
+        let log = TemperatureCSVLog(directoryURL: directory)
+        log.record(targetCelsius: 40, actualCelsius: 45, at: now)
+        log.record(targetCelsius: 40, actualCelsius: 44, at: now.addingTimeInterval(1))
+        log.record(targetCelsius: 40, actualCelsius: 43, at: now.addingTimeInterval(2))
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: expired.path))
+        let contents = try String(contentsOf: XCTUnwrap(
+            FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil).first
+        ), encoding: .utf8)
+        XCTAssertEqual(contents.split(separator: "\n").count, 3)
+        XCTAssertTrue(contents.contains("40.0,45.0"))
+        XCTAssertTrue(contents.contains("40.0,43.0"))
+    }
+
     func testCodeSigningRequirementRejectsInjectedIdentifiers() {
         XCTAssertNoThrow(try CodeSigningRequirement(
             identifier: fanHelperBundleIdentifier,

@@ -40,6 +40,8 @@ Quiet ignores 3 °C cooldown fluctuations and lowers RPM more slowly than it rai
 
 Only one controller can be active. The app starts in Apple automatic mode; after a selection, the helper remains the source of truth for both menu checkmarks and reapplies every manual target after sleep or another SMC reset.
 
+While Target Temperature is active, the app writes `timestamp,target_celsius,actual_celsius` every two seconds to daily CSV files in `~/Library/Logs/ThermalIcon/`. Files whose last sample is older than 72 hours are deleted automatically.
+
 ## Stack at a glance
 
 | Layer | Tech |
@@ -73,7 +75,7 @@ The helper accepts only the controls listed above. Quitting the app or losing th
 
 ```text
 $ swift test
-Executed 11 tests, with 0 failures
+Executed 12 tests, with 0 failures
 ```
 
 Licensed under [GPL-3.0-only](LICENSE). MIT notices for Stats, smctl, and MacFanControl remain in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

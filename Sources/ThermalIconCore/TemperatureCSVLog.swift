@@ -1,0 +1,65 @@
+import Foundation
+
+public final class TemperatureCSVLog {
+    public static let sampleInterval: TimeInterval = 2
+    public static let retention: TimeInterval = 3 * 24 * 60 * 60
+    public let directoryURL: URL
+
+    private var lastSampleAt: Date?
+    private var lastCleanupAt: Date?
+    private let timestampFormatter: ISO8601DateFormatter
+
+    public init(directoryURL: URL = TemperatureCSVLog.defaultDirectoryURL) {
+        self.directoryURL = directoryURL
+        timestampFormatter = ISO8601DateFormatter()
+        timestampFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    }
+
+    public func record(targetCelsius: Double, actualCelsius: Double, at date: Date = Date()) {
+        guard targetCelsius.isFinite, actualCelsius.isFinite else { return }
+        guard lastSampleAt.map({ date.timeIntervalSince($0) >= Self.sampleInterval }) != false else { return }
+
+        do {
+            try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            let timestamp = timestampFormatter.string(from: date)
+            let fileURL = directoryURL.appendingPathComponent("\(timestamp.prefix(10)).csv")
+            let values = String(
+                format: "%.1f,%.1f",
+                locale: Locale(identifier: "en_US_POSIX"),
+                targetCelsius,
+                actualCelsius
+            )
+            let line = "\(timestamp),\(values)\n"
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                let handle = try FileHandle(forWritingTo: fileURL)
+                try handle.seekToEnd()
+                try handle.write(contentsOf: Data(line.utf8))
+                try handle.close()
+            } else {
+                try Data("timestamp,target_celsius,actual_celsius\n\(line)".utf8).write(to: fileURL, options: .atomic)
+            }
+            lastSampleAt = date
+        } catch {
+            NSLog("ThermalIcon temperature log write failed: \(error)")
+        }
+
+        guard lastCleanupAt.map({ date.timeIntervalSince($0) >= 60 * 60 }) != false else { return }
+        do {
+            let cutoff = date.addingTimeInterval(-Self.retention)
+            for fileURL in try FileManager.default.contentsOfDirectory(
+                at: directoryURL,
+                includingPropertiesForKeys: [.contentModificationDateKey]
+            ) where try fileURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate.map({ $0 < cutoff }) == true {
+                try FileManager.default.removeItem(at: fileURL)
+            }
+            lastCleanupAt = date
+        } catch {
+            NSLog("ThermalIcon temperature log cleanup failed: \(error)")
+        }
+    }
+
+    public static let defaultDirectoryURL = FileManager.default
+        .urls(for: .libraryDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("Logs/ThermalIcon", isDirectory: true)
+
+}
