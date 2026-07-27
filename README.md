@@ -36,7 +36,7 @@ The paired-wave animation sends a left mote followed by a right mote after 0.45 
 
 Quiet ignores 3 °C cooldown fluctuations and lowers RPM more slowly than it raises it, reducing audible fan hunting. Reaching 90 °C bypasses stabilization and requests maximum speed immediately.
 
-**Target Temperature** offers 40–85 °C in 5 °C steps. The helper checks the CPU every two seconds and adjusts the existing SMC target by 50 RPM per degree of error. A ±0.5 °C deadband holds the current speed, while 90 °C always requests maximum speed.
+**Target Temperature** offers 40–85 °C in 5 °C steps. The helper checks the CPU every two seconds and raises the existing SMC target by 20 RPM per degree of error, capped at 200 RPM per cycle. A ±0.5 °C deadband holds the current speed; dropping below it immediately requests minimum RPM, while 90 °C always requests maximum speed.
 
 Only one controller can be active. The app starts in Apple automatic mode; after a selection, the helper remains the source of truth for both menu checkmarks and reapplies every manual target after sleep or another SMC reset.
 
