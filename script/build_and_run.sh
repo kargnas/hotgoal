@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 
 MODE="${1:-run}"
@@ -43,7 +43,25 @@ STAGING_APP_BINARY="$STAGING_APP_MACOS/$APP_NAME"
 STAGING_HELPER_BINARY="$STAGING_APP_RESOURCES/$HELPER_NAME"
 STAGING_HELPER_PLIST="$STAGING_APP_LAUNCH_DAEMONS/$HELPER_PLIST_NAME"
 STAGING_INFO_PLIST="$STAGING_APP_CONTENTS/Info.plist"
-trap 'rm -rf "$STAGING_DIR"' EXIT
+DEV_JOB_LABEL="$BUNDLE_ID.dev"
+DEV_JOB_DOMAIN="gui/$(id -u)"
+DEV_JOB_WAS_LOADED=false
+DEV_JOB_STOPPED=false
+
+restore_dev_job() {
+  if [[ "$DEV_JOB_STOPPED" == true && -x "$APP_BINARY" ]]; then
+    launchctl submit -l "$DEV_JOB_LABEL" -p "$APP_BINARY" -- "$APP_BINARY"
+    DEV_JOB_STOPPED=false
+  fi
+}
+
+cleanup() {
+  rm -rf "$STAGING_DIR"
+  if ! restore_dev_job; then
+    echo "failed to restore $DEV_JOB_LABEL" >&2
+  fi
+}
+trap cleanup EXIT
 
 mkdir -p "$STAGING_APP_MACOS" "$STAGING_APP_RESOURCES" "$STAGING_APP_LAUNCH_DAEMONS"
 cp "$BUILD_BINARY" "$STAGING_APP_BINARY"
@@ -117,8 +135,14 @@ if [[ -x "$APP_BINARY" ]]; then
   esac
 fi
 
+if launchctl print "$DEV_JOB_DOMAIN/$DEV_JOB_LABEL" >/dev/null 2>&1; then
+  DEV_JOB_WAS_LOADED=true
+  launchctl bootout "$DEV_JOB_DOMAIN/$DEV_JOB_LABEL"
+  DEV_JOB_STOPPED=true
+fi
+
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
-for _ in {1..20}; do
+for _ in {1..50}; do
   if ! pgrep -x "$APP_NAME" >/dev/null; then
     break
   fi
@@ -131,6 +155,8 @@ fi
 
 if [[ "$HELPER_WAS_REGISTERED" == true ]]; then
   "$STAGING_APP_BINARY" --unregister-helper
+  # BackgroundTaskManagement can reject an immediate re-registration after a successful unregister.
+  sleep 2
 fi
 
 rm -rf "$APP_BUNDLE"
@@ -140,8 +166,12 @@ if [[ "$HELPER_WAS_REGISTERED" == true ]]; then
   "$APP_BINARY" --register-helper
 fi
 
+restore_dev_job
+
 open_app() {
-  /usr/bin/open -n "$APP_BUNDLE"
+  if [[ "$DEV_JOB_WAS_LOADED" == false ]]; then
+    /usr/bin/open -n "$APP_BUNDLE"
+  fi
 }
 
 verify_process() {
