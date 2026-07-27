@@ -80,9 +80,9 @@ cat >"$STAGING_INFO_PLIST" <<PLIST
   <key>CFBundleName</key>
   <string>$APP_DISPLAY_NAME</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.6.0</string>
+  <string>1.6.1</string>
   <key>CFBundleVersion</key>
-  <string>11</string>
+  <string>12</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>

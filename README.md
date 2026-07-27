@@ -42,6 +42,8 @@ Only one controller can be active. The app starts in Apple automatic mode; after
 
 While Target Temperature is active, the app writes `timestamp,target_celsius,actual_celsius` every two seconds to daily CSV files in `~/Library/Logs/ThermalIcon/`. Files whose last sample is older than 72 hours are deleted automatically.
 
+Choose **Temperature Log…** from the main menu to read the retained CSV files in a native window. Fan status rows show only the RPM values.
+
 ## Stack at a glance
 
 | Layer | Tech |

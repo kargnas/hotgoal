@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let helperManager = FanHelperServiceManager()
     private let helperClient = FanHelperClient()
     private let temperatureLog = TemperatureCSVLog()
+    private lazy var temperatureLogWindow = TemperatureLogWindowController(log: temperatureLog)
     private var refreshTimer: Timer?
     private var temperature: Double?
     private var fans: [FanSnapshot] = []
@@ -141,6 +142,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(thresholdItem)
 
         menu.addItem(.separator())
+        let logItem = NSMenuItem(title: "Temperature Log…", action: #selector(showTemperatureLog), keyEquivalent: "")
+        logItem.target = self
+        menu.addItem(logItem)
         let refreshItem = NSMenuItem(title: "Refresh Now", action: #selector(refresh), keyEquivalent: "r")
         refreshItem.target = self
         menu.addItem(refreshItem)
@@ -286,7 +290,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             fanStatusItem.title = "Fans: unavailable"
             fanStatusItem.toolTip = nil
         } else if fans.count == 2 {
-            let labels = fans.map { "Fan \($0.index + 1) \($0.currentRPM) RPM" }
+            let labels = fans.map { "\($0.currentRPM) RPM" }
             fanStatusItem.title = labels.joined(separator: ", ")
             fanStatusView.update(left: labels[0], right: labels[1])
             if fanStatusItem.view !== fanStatusView {
@@ -295,7 +299,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             fanStatusItem.toolTip = nil
         } else {
             fanStatusItem.view = nil
-            let speeds = fans.map { "Fan \($0.index + 1) \($0.currentRPM) RPM" }.joined(separator: " · ")
+            let speeds = fans.map { "\($0.currentRPM) RPM" }.joined(separator: " · ")
             fanStatusItem.title = speeds
             fanStatusItem.toolTip = nil
         }
@@ -504,6 +508,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         alert.addButton(withTitle: "OK")
         NSApp.activate(ignoringOtherApps: true)
         alert.runModal()
+    }
+
+    @objc private func showTemperatureLog() {
+        temperatureLogWindow.present()
     }
 
     @objc private func quit() {

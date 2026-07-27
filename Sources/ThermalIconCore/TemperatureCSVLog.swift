@@ -58,6 +58,20 @@ public final class TemperatureCSVLog {
         }
     }
 
+    public func contents() throws -> String {
+        guard FileManager.default.fileExists(atPath: directoryURL.path) else { return "" }
+        return try FileManager.default.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: nil
+        )
+        .filter { $0.pathExtension == "csv" }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        .map { fileURL in
+            "# \(fileURL.lastPathComponent)\n" + (try String(contentsOf: fileURL, encoding: .utf8))
+        }
+        .joined(separator: "\n")
+    }
+
     public static let defaultDirectoryURL = FileManager.default
         .urls(for: .libraryDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("Logs/ThermalIcon", isDirectory: true)

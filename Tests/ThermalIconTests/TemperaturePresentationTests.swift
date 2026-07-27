@@ -180,6 +180,7 @@ final class TemperaturePresentationTests: XCTestCase {
         XCTAssertEqual(contents.split(separator: "\n").count, 3)
         XCTAssertTrue(contents.contains("40.0,45.0"))
         XCTAssertTrue(contents.contains("40.0,43.0"))
+        XCTAssertTrue(try log.contents().contains("target_celsius,actual_celsius"))
     }
 
     func testCodeSigningRequirementRejectsInjectedIdentifiers() {
