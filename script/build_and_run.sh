@@ -13,16 +13,7 @@ MIN_SYSTEM_VERSION="14.0"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_DISPLAY_NAME.app"
-APP_CONTENTS="$APP_BUNDLE/Contents"
-APP_MACOS="$APP_CONTENTS/MacOS"
-APP_RESOURCES="$APP_CONTENTS/Resources"
-APP_LAUNCH_DAEMONS="$APP_CONTENTS/Library/LaunchDaemons"
-APP_BINARY="$APP_MACOS/$APP_NAME"
-HELPER_BINARY="$APP_RESOURCES/$HELPER_NAME"
-HELPER_PLIST="$APP_LAUNCH_DAEMONS/$HELPER_PLIST_NAME"
-INFO_PLIST="$APP_CONTENTS/Info.plist"
-
-pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+APP_BINARY="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
 swift build --package-path "$ROOT_DIR"
 BUILD_DIR="$(swift build --package-path "$ROOT_DIR" --show-bin-path)"
@@ -41,13 +32,25 @@ if [[ -z "$SIGNING_IDENTITY" ]]; then
   exit 1
 fi
 
-rm -rf "$APP_BUNDLE"
-mkdir -p "$APP_MACOS" "$APP_RESOURCES" "$APP_LAUNCH_DAEMONS"
-cp "$BUILD_BINARY" "$APP_BINARY"
-cp "$BUILD_HELPER" "$HELPER_BINARY"
-chmod +x "$APP_BINARY" "$HELPER_BINARY"
+mkdir -p "$DIST_DIR"
+STAGING_DIR="$(mktemp -d "$DIST_DIR/.thermal-icon.XXXXXX")"
+STAGING_APP_BUNDLE="$STAGING_DIR/$APP_DISPLAY_NAME.app"
+STAGING_APP_CONTENTS="$STAGING_APP_BUNDLE/Contents"
+STAGING_APP_MACOS="$STAGING_APP_CONTENTS/MacOS"
+STAGING_APP_RESOURCES="$STAGING_APP_CONTENTS/Resources"
+STAGING_APP_LAUNCH_DAEMONS="$STAGING_APP_CONTENTS/Library/LaunchDaemons"
+STAGING_APP_BINARY="$STAGING_APP_MACOS/$APP_NAME"
+STAGING_HELPER_BINARY="$STAGING_APP_RESOURCES/$HELPER_NAME"
+STAGING_HELPER_PLIST="$STAGING_APP_LAUNCH_DAEMONS/$HELPER_PLIST_NAME"
+STAGING_INFO_PLIST="$STAGING_APP_CONTENTS/Info.plist"
+trap 'rm -rf "$STAGING_DIR"' EXIT
 
-cat >"$INFO_PLIST" <<PLIST
+mkdir -p "$STAGING_APP_MACOS" "$STAGING_APP_RESOURCES" "$STAGING_APP_LAUNCH_DAEMONS"
+cp "$BUILD_BINARY" "$STAGING_APP_BINARY"
+cp "$BUILD_HELPER" "$STAGING_HELPER_BINARY"
+chmod +x "$STAGING_APP_BINARY" "$STAGING_HELPER_BINARY"
+
+cat >"$STAGING_INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -59,9 +62,9 @@ cat >"$INFO_PLIST" <<PLIST
   <key>CFBundleName</key>
   <string>$APP_DISPLAY_NAME</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.3.2</string>
+  <string>1.4.0</string>
   <key>CFBundleVersion</key>
-  <string>6</string>
+  <string>7</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>
@@ -74,7 +77,7 @@ cat >"$INFO_PLIST" <<PLIST
 </plist>
 PLIST
 
-cat >"$HELPER_PLIST" <<PLIST
+cat >"$STAGING_HELPER_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -99,12 +102,43 @@ PLIST
 codesign --force --options runtime --timestamp=none \
   --identifier "$HELPER_ID" \
   --sign "$SIGNING_IDENTITY" \
-  "$HELPER_BINARY"
+  "$STAGING_HELPER_BINARY"
 codesign --force --options runtime --timestamp=none \
   --sign "$SIGNING_IDENTITY" \
-  "$APP_BUNDLE"
-codesign --verify --strict "$HELPER_BINARY"
-codesign --verify --strict "$APP_BUNDLE"
+  "$STAGING_APP_BUNDLE"
+codesign --verify --strict "$STAGING_HELPER_BINARY"
+codesign --verify --strict "$STAGING_APP_BUNDLE"
+
+HELPER_WAS_REGISTERED=false
+if [[ -x "$APP_BINARY" ]]; then
+  CURRENT_HELPER_STATUS="$("$STAGING_APP_BINARY" --helper-status)"
+  case "$CURRENT_HELPER_STATUS" in
+    "Fan helper: enabled"|"Fan helper: approval required") HELPER_WAS_REGISTERED=true ;;
+  esac
+fi
+
+pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+for _ in {1..20}; do
+  if ! pgrep -x "$APP_NAME" >/dev/null; then
+    break
+  fi
+  sleep 0.1
+done
+if pgrep -x "$APP_NAME" >/dev/null; then
+  echo "failed to stop $APP_NAME before replacing its bundle" >&2
+  exit 1
+fi
+
+if [[ "$HELPER_WAS_REGISTERED" == true ]]; then
+  "$STAGING_APP_BINARY" --unregister-helper
+fi
+
+rm -rf "$APP_BUNDLE"
+mv "$STAGING_APP_BUNDLE" "$APP_BUNDLE"
+
+if [[ "$HELPER_WAS_REGISTERED" == true ]]; then
+  "$APP_BINARY" --register-helper
+fi
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"

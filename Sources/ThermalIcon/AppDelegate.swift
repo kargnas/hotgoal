@@ -32,10 +32,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var warmItems: [NSMenuItem] = []
     private var hotItems: [NSMenuItem] = []
     private var fanModeItems: [FanControlMode: NSMenuItem] = [:]
-    private var selectedFanMode: FanControlMode? = .standard
+    private var reportedFanMode: FanControlMode?
+    private var fanStatusError: String?
+    private var fanStatusRequestInFlight = false
     private var fanCommandInFlight = false
-    private var fanCommandGeneration = 0
-    private var startupStandardAttempted = false
+    private var fanConnectionGeneration = 0
 
     override init() {
         let defaults = UserDefaults.standard
@@ -58,10 +59,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.setActivationPolicy(.accessory)
         helperClient.connectionLostHandler = { [weak self] in
             guard let self else { return }
-            fanCommandGeneration += 1
-            selectedFanMode = nil
+            fanConnectionGeneration += 1
+            reportedFanMode = nil
+            fans = []
+            fanStatusError = "Fan helper connection lost"
+            fanStatusRequestInFlight = false
             fanCommandInFlight = false
-            startupStandardAttempted = false
             updateFanItems()
         }
         configureStatusItem()
@@ -199,33 +202,84 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func refreshFans() {
-        if let reader {
-            fans = (try? reader.fanSnapshots()) ?? []
-        }
         let controllerConflict = !NSRunningApplication.runningApplications(
             withBundleIdentifier: "com.crystalidea.macsfancontrol"
         ).isEmpty
         if controllerConflict && !hasControllerConflict {
-            fanCommandGeneration += 1
+            fanConnectionGeneration += 1
             fanCommandInFlight = false
+            fanStatusRequestInFlight = false
             helperClient.disconnect()
-            selectedFanMode = nil
-            startupStandardAttempted = true
-        } else if !controllerConflict && hasControllerConflict {
-            startupStandardAttempted = false
+            reportedFanMode = nil
+            fanStatusError = nil
         }
         hasControllerConflict = controllerConflict
+
+        if hasControllerConflict {
+            updateFanItems()
+            return
+        }
+
+        if helperManager.state == .enabled {
+            refreshFanControlStatus()
+            return
+        }
+
+        if helperClient.isConnected {
+            fanConnectionGeneration += 1
+            fanStatusRequestInFlight = false
+            fanCommandInFlight = false
+            helperClient.disconnect()
+        }
+        reportedFanMode = nil
+        do {
+            fans = try reader?.fanSnapshots() ?? []
+            fanStatusError = nil
+        } catch {
+            fans = []
+            fanStatusError = error.localizedDescription
+        }
         updateFanItems()
-        applyStartupStandardIfReady()
+    }
+
+    private func refreshFanControlStatus() {
+        guard !fanStatusRequestInFlight else {
+            updateFanItems()
+            return
+        }
+        fanStatusRequestInFlight = true
+        let generation = fanConnectionGeneration
+        helperClient.getStatus { [weak self] result in
+            guard let self, generation == fanConnectionGeneration else { return }
+            fanStatusRequestInFlight = false
+            guard !hasControllerConflict, helperManager.state == .enabled else { return }
+            switch result {
+            case let .success(status):
+                fans = status.fans
+                reportedFanMode = status.mode
+                fanStatusError = nil
+            case let .failure(error):
+                fans = []
+                reportedFanMode = nil
+                fanStatusError = error.localizedDescription
+            }
+            updateFanItems()
+        }
     }
 
     private func updateFanItems() {
         if hasControllerConflict {
             fanStatusItem.view = nil
             fanStatusItem.title = "Fans: controlled by Macs Fan Control"
+            fanStatusItem.toolTip = nil
+        } else if let fanStatusError {
+            fanStatusItem.view = nil
+            fanStatusItem.title = "Fans: unavailable"
+            fanStatusItem.toolTip = fanStatusError
         } else if fans.isEmpty {
             fanStatusItem.view = nil
             fanStatusItem.title = "Fans: unavailable"
+            fanStatusItem.toolTip = nil
         } else if fans.count == 2 {
             let labels = fans.map { "Fan \($0.index + 1) \($0.currentRPM) RPM" }
             fanStatusItem.title = labels.joined(separator: ", ")
@@ -233,10 +287,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if fanStatusItem.view !== fanStatusView {
                 fanStatusItem.view = fanStatusView
             }
+            fanStatusItem.toolTip = nil
         } else {
             fanStatusItem.view = nil
             let speeds = fans.map { "Fan \($0.index + 1) \($0.currentRPM) RPM" }.joined(separator: " · ")
             fanStatusItem.title = speeds
+            fanStatusItem.toolTip = nil
         }
 
         let helperEnabled = helperManager.state == .enabled
@@ -244,7 +300,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hotItems.forEach { $0.isEnabled = !fanCommandInFlight }
         for (mode, item) in fanModeItems {
             item.isEnabled = controlsEnabled
-            item.state = selectedFanMode == mode ? .on : .off
+            item.state = reportedFanMode == mode ? .on : .off
         }
 
         if hasControllerConflict {
@@ -367,12 +423,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func selectHotThreshold(_ sender: NSMenuItem) {
         guard !fanCommandInFlight else { return }
-        let modeToRefresh = selectedFanMode
+        let modeToRefresh = reportedFanMode
         thresholds = TemperatureThresholds(warm: thresholds.warm, hot: Double(sender.tag))
         UserDefaults.standard.set(thresholds.hot, forKey: DefaultsKey.hotThreshold)
         updateChecks()
         updateStatusItem()
-        if let modeToRefresh, modeToRefresh != .ultra { applyFanMode(modeToRefresh) }
+        if let modeToRefresh, modeToRefresh == .quiet || modeToRefresh == .standard {
+            applyFanMode(modeToRefresh)
+        }
     }
 
     @objc private func selectFanMode(_ sender: NSMenuItem) {
@@ -388,23 +446,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               !fans.isEmpty,
               !fanCommandInFlight else { return }
         fanCommandInFlight = true
-        selectedFanMode = mode
-        fanCommandGeneration += 1
-        let generation = fanCommandGeneration
-        fanStatusItem.title = "Applying \(mode.title)…"
+        let generation = fanConnectionGeneration
         updateFanItems()
-        helperClient.setMode(mode, thresholds: thresholds) { [weak self] result in
-            self?.finishFanCommand(result, mode: mode, generation: generation)
+        helperClient.setMode(mode, hotThreshold: thresholds.hot) { [weak self] result in
+            self?.finishFanCommand(result, generation: generation)
         }
-    }
-
-    private func applyStartupStandardIfReady() {
-        guard !startupStandardAttempted,
-              helperManager.state == .enabled,
-              !fans.isEmpty,
-              !hasControllerConflict else { return }
-        startupStandardAttempted = true
-        applyFanMode(.standard)
     }
 
     @objc private func handleHelperAction() {
@@ -430,23 +476,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             break
         }
         updateFanItems()
+        refreshFans()
     }
 
     private func finishFanCommand(
         _ result: Result<Void, Error>,
-        mode: FanControlMode,
         generation: Int
     ) {
-        guard generation == fanCommandGeneration else { return }
-        fanCommandGeneration += 1
+        guard generation == fanConnectionGeneration else { return }
         fanCommandInFlight = false
         switch result {
         case .success:
-            selectedFanMode = mode
-            refresh()
+            refreshFans()
         case let .failure(error):
-            selectedFanMode = nil
-            refresh()
+            refreshFans()
             showError(error.localizedDescription)
         }
     }

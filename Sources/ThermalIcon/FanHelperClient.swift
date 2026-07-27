@@ -17,17 +17,18 @@ final class FanHelperClient {
 
     private var connection: NSXPCConnection?
     var connectionLostHandler: (() -> Void)?
+    var isConnected: Bool { connection != nil }
 
-    func getFanStatus(completion: @escaping (Result<[FanSnapshot], Error>) -> Void) {
+    func getStatus(completion: @escaping (Result<FanControlStatus, Error>) -> Void) {
         do {
             let proxy = try remoteProxy(errorHandler: completion)
-            proxy.getFanStatus { data, message in
+            proxy.getStatus { data, message in
                 DispatchQueue.main.async {
                     do {
                         guard let data, message == nil else {
                             throw ClientError.helper(message ?? "Fan status unavailable")
                         }
-                        completion(.success(try FanPayloadCodec.decodeValidated(data)))
+                        completion(.success(try FanStatusCodec.decodeValidated(data)))
                     } catch {
                         completion(.failure(error))
                     }
@@ -40,22 +41,15 @@ final class FanHelperClient {
 
     func setMode(
         _ mode: FanControlMode,
-        thresholds: TemperatureThresholds,
+        hotThreshold: Double,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         perform(completion: completion) { proxy, reply in
             proxy.setMode(
                 mode: mode.rawValue,
-                warmThreshold: thresholds.warm,
-                hotThreshold: thresholds.hot,
+                hotThreshold: hotThreshold,
                 reply: reply
             )
-        }
-    }
-
-    func restoreAutomatic(completion: @escaping (Result<Void, Error>) -> Void) {
-        perform(completion: completion) { proxy, reply in
-            proxy.restoreAutomatic(reply: reply)
         }
     }
 

@@ -1,5 +1,6 @@
 import AppKit
 import Darwin
+import Dispatch
 import Foundation
 import ServiceManagement
 import ThermalIconCore
@@ -70,6 +71,23 @@ enum ThermalIconApp {
                 if service.status != .requiresApproval { exit(1) }
             }
             return true
+        }
+
+        if CommandLine.arguments.contains("--unregister-helper") {
+            let service = SMAppService.daemon(plistName: fanHelperPlistName)
+            if service.status == .notRegistered || service.status == .notFound {
+                print(helperStatusText())
+                return true
+            }
+            service.unregister { error in
+                if let error {
+                    fputs("\(error.localizedDescription)\n", stderr)
+                    exit(1)
+                }
+                print("Fan helper: unregistered")
+                exit(0)
+            }
+            dispatchMain()
         }
 
         return false

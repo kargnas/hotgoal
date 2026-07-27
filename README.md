@@ -30,10 +30,12 @@ The paired-wave animation sends a left mote followed by a right mote after 0.45 
 |---|---:|---|
 | Muted | Apple automatic | Allows 0 RPM when macOS considers it safe. |
 | Quiet | 1,500 RPM | Holds the minimum until the hot threshold, then ramps to maximum at 90 °C. |
-| Standard | 1,800 RPM | Default mode; holds the higher floor until the hot threshold, then ramps to maximum at 90 °C. |
+| Standard | 1,800 RPM | Holds the higher floor until the hot threshold, then ramps to maximum at 90 °C. |
 | Ultra | Maximum | Runs every fan at 100%. |
 
 Quiet and Standard ignore 3 °C cooldown fluctuations and lower RPM more slowly than they raise it, reducing audible fan hunting. Reaching 90 °C bypasses stabilization and requests maximum speed immediately.
+
+The app starts in Apple automatic mode. After you choose a mode, the helper remains the source of truth for the menu checkmark and reapplies every manual target after sleep or another SMC reset.
 
 ## Stack at a glance
 
@@ -53,6 +55,8 @@ cd modern-mac-fan-control
 ```
 
 Requires macOS 14 or later and a Developer ID Application or Apple Development signing identity.
+
+When a registered helper already exists, the build script unregisters it before replacing the signed app bundle and registers the new helper afterward.
 
 To enable fan control:
 
