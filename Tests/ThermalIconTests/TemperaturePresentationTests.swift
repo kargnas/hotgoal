@@ -92,7 +92,7 @@ final class TemperaturePresentationTests: XCTestCase {
         XCTAssertEqual(TargetTemperatureController.targets(celsius: 80, target: 70, fans: [fan]), [1_600])
         XCTAssertEqual(TargetTemperatureController.targets(celsius: 80, target: 70, fans: [snapshot(target: 2_000)]), [2_100])
         XCTAssertEqual(TargetTemperatureController.targets(celsius: 70.4, target: 70, fans: [fan]), [1_500])
-        XCTAssertEqual(TargetTemperatureController.targets(celsius: 69, target: 70, fans: [snapshot(target: 3_000)]), [1_500])
+        XCTAssertEqual(TargetTemperatureController.targets(celsius: 69, target: 70, fans: [snapshot(target: 3_000)]), [2_980])
         XCTAssertEqual(TargetTemperatureController.targets(celsius: 90, target: 70, fans: [fan]), [6_000])
     }
 
@@ -115,7 +115,7 @@ final class TemperaturePresentationTests: XCTestCase {
 
         XCTAssertEqual(stabilizer.limitTargets([1_500, 1_500], at: 0), [1_500, 1_500])
         XCTAssertEqual(stabilizer.limitTargets([4_000, 4_000], at: 2), [1_700, 1_700])
-        XCTAssertEqual(stabilizer.limitTargets([1_500, 1_500], at: 3), [1_500, 1_500])
+        XCTAssertEqual(stabilizer.limitTargets([1_000, 1_000], at: 3), [1_500, 1_500])
         XCTAssertEqual(stabilizer.limitTargets([4_000, 4_000], at: 100), [1_700, 1_700])
         XCTAssertEqual(
             stabilizer.limitTargets([5_800, 5_800], at: 3.1, forceImmediate: true),

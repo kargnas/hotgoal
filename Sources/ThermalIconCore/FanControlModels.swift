@@ -125,6 +125,7 @@ public enum TargetTemperatureController {
     public static let deadband = 0.5
     // The helper runs every second; small upward steps avoid sudden acoustic changes.
     public static let rpmPerDegreePerCycle = 10.0
+    public static let coolingRPMPerDegreePerCycle = 20.0
 
     public static func targets(
         celsius: Double,
@@ -134,8 +135,8 @@ public enum TargetTemperatureController {
         guard celsius.isFinite else { return fans.map(\.maximumRPM) }
         if celsius >= 90 { return fans.map(\.maximumRPM) }
         let error = celsius - target
-        if error < -deadband { return fans.map(\.minimumRPM) }
-        let adjustment = error <= deadband ? 0 : Int((error * rpmPerDegreePerCycle).rounded())
+        let gain = error < -deadband ? coolingRPMPerDegreePerCycle : rpmPerDegreePerCycle
+        let adjustment = abs(error) <= deadband ? 0 : Int((error * gain).rounded())
         return fans.map { fan in
             // SMC's last target is the integral state; no second copy can drift out of sync.
             // ponytail: add a derivative term only if measured thermal traces show sustained oscillation.
@@ -168,9 +169,10 @@ public struct TemperatureAverage: Sendable {
 }
 
 public struct FanTargetStabilizer: Sendable {
-    // Rising is intentionally gradual; cooling requests apply immediately.
+    // Cooling is faster than rising but remains bounded to prevent audible on/off cycling.
     public static let hysteresisCelsius = 3.0
     public static let riseRPMPerSecond = 100.0
+    public static let fallRPMPerSecond = 200.0
 
     private var previousTemperature: Double?
     private var previousTargets: [Int]?
@@ -208,12 +210,14 @@ public struct FanTargetStabilizer: Sendable {
             return requestedTargets
         }
 
-        // A wake or stalled timer must not turn elapsed time into one large upward jump.
+        // A wake or stalled timer must not turn elapsed time into one large RPM jump.
         let elapsed = min(max(0, time - previousUpdateTime), 2)
         let limited = zip(previousTargets, requestedTargets).map { previous, requested in
-            guard requested > previous else { return requested }
-            let maximumChange = Int((Self.riseRPMPerSecond * elapsed).rounded(.down))
-            return min(requested, previous + maximumChange)
+            let rate = requested > previous ? Self.riseRPMPerSecond : Self.fallRPMPerSecond
+            let maximumChange = Int((rate * elapsed).rounded(.down))
+            return requested > previous
+                ? min(requested, previous + maximumChange)
+                : max(requested, previous - maximumChange)
         }
         self.previousTargets = limited
         return limited
