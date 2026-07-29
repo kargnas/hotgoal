@@ -9,7 +9,7 @@ Native macOS menu-bar temperature monitoring with animated thermal feedback and 
 [![GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-2563eb)](LICENSE)
 
 <a href="docs/thermal-motes.mp4">
-  <img src="docs/ulfan-hero.png" width="800" alt="Animated green thermometer with paired thermal motes">
+  <img src="docs/hottarget-hero.png" width="800" alt="Animated green thermometer with paired thermal motes">
 </a>
 
 <p align="center"><a href="docs/thermal-motes.mp4">Play the MP4: 800×450 · H.264 · 30 fps</a></p>
@@ -40,7 +40,7 @@ Quiet ignores 3 °C cooldown fluctuations and lowers RPM more slowly than it rai
 
 Only one controller can be active. The app starts in Apple automatic mode; after a selection, the helper remains the source of truth for both menu checkmarks and reapplies every manual target after sleep or another SMC reset.
 
-While Target Temperature is active, the app writes `timestamp,target_celsius,actual_celsius` every second to daily CSV files in `~/Library/Logs/ulfan/`. Files whose last sample is older than 72 hours are deleted automatically.
+While Target Temperature is active, the app writes `timestamp,target_celsius,actual_celsius` every second to daily CSV files in `~/Library/Logs/hottarget/`. Files whose last sample is older than 72 hours are deleted automatically.
 
 Choose **Temperature Log…** from the main menu to read the retained CSV files in a native window. Fan status rows show only the RPM values.
 
