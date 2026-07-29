@@ -8,6 +8,7 @@ BUNDLE_ID="as.kargn.hottarget"
 HELPER_NAME="hottarget-helper"
 HELPER_ID="as.kargn.hottarget.helper"
 HELPER_PLIST_NAME="$HELPER_ID.plist"
+ICON_NAME="HotTarget"
 MIN_SYSTEM_VERSION="14.0"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -68,6 +69,11 @@ cp "$BUILD_BINARY" "$STAGING_APP_BINARY"
 cp "$BUILD_HELPER" "$STAGING_HELPER_BINARY"
 chmod +x "$STAGING_APP_BINARY" "$STAGING_HELPER_BINARY"
 
+# 아이콘은 저장소에 바이너리로 두지 않고 매 빌드마다 script/make_icon.swift 로 그린다.
+ICONSET_DIR="$STAGING_DIR/$ICON_NAME.iconset"
+swift "$ROOT_DIR/script/make_icon.swift" "$ICONSET_DIR"
+iconutil --convert icns "$ICONSET_DIR" --output "$STAGING_APP_RESOURCES/$ICON_NAME.icns"
+
 cat >"$STAGING_INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -75,6 +81,8 @@ cat >"$STAGING_INFO_PLIST" <<PLIST
 <dict>
   <key>CFBundleExecutable</key>
   <string>$APP_NAME</string>
+  <key>CFBundleIconFile</key>
+  <string>$ICON_NAME</string>
   <key>CFBundleIdentifier</key>
   <string>$BUNDLE_ID</string>
   <key>CFBundleName</key>
