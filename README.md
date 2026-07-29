@@ -1,4 +1,4 @@
-# Modern Mac Fan Control
+# Ultra Fan MacBook
 
 Native macOS menu-bar temperature monitoring with animated thermal feedback and two guarded fan controllers.
 
@@ -69,7 +69,7 @@ To enable fan control:
 
 1. Quit other fan controllers.
 2. Choose **Fan Control → Enable Fan Control…**.
-3. Approve **Thermal Icon.app** in **System Settings → General → Login Items & Extensions**.
+3. Approve **Ultra Fan MacBook.app** in **System Settings → General → Login Items & Extensions**.
 
 The helper accepts only the controls listed above. Quitting the app or losing the helper connection restores Apple automatic control.
 
