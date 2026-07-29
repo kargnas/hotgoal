@@ -1,3 +1,5 @@
 .build/
 dist/
 .DS_Store
+# AI 에이전트가 만드는 계획/미리보기 산출물은 저장소에 넣지 않는다.
+.claude/
