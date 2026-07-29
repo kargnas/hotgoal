@@ -93,7 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func configureStatusItem() {
         guard let button = statusItem.button else { return }
-        statusItem.autosaveName = "ULFanMenuBarItem"
+        statusItem.autosaveName = "HotTargetMenuBarItem"
         button.imageScaling = .scaleProportionallyDown
         button.setAccessibilityLabel("CPU temperature")
         statusView.frame = button.bounds

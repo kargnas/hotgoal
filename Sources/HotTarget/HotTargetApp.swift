@@ -6,7 +6,7 @@ import ServiceManagement
 import HotTargetCore
 
 @main
-enum ULFanApp {
+enum HotTargetApp {
     @MainActor
     static func main() {
         if runCommandLine() { return }

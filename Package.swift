@@ -8,7 +8,7 @@ let package = Package(
         .macOS(.v14),
     ],
     products: [
-        .executable(name: "ulfan", targets: ["ULFan"]),
+        .executable(name: "hottarget", targets: ["HotTarget"]),
         .executable(name: "ulfan-helper", targets: ["ULFanHelper"]),
     ],
     targets: [
@@ -20,7 +20,7 @@ let package = Package(
             ]
         ),
         .executableTarget(
-            name: "ULFan",
+            name: "HotTarget",
             dependencies: ["HotTargetCore"],
             linkerSettings: [.linkedFramework("ServiceManagement")]
         ),
