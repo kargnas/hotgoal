@@ -2,11 +2,11 @@
 set -euo pipefail
 
 MODE="${1:-run}"
-APP_NAME="ulfan"
+APP_NAME="hottarget"
 APP_DISPLAY_NAME="Hot Target"
-BUNDLE_ID="as.kargn.ulfan"
-HELPER_NAME="ulfan-helper"
-HELPER_ID="as.kargn.ulfan.helper"
+BUNDLE_ID="as.kargn.hottarget"
+HELPER_NAME="hottarget-helper"
+HELPER_ID="as.kargn.hottarget.helper"
 HELPER_PLIST_NAME="$HELPER_ID.plist"
 MIN_SYSTEM_VERSION="14.0"
 
@@ -33,7 +33,7 @@ if [[ -z "$SIGNING_IDENTITY" ]]; then
 fi
 
 mkdir -p "$DIST_DIR"
-STAGING_DIR="$(mktemp -d "$DIST_DIR/.ulfan.XXXXXX")"
+STAGING_DIR="$(mktemp -d "$DIST_DIR/.hottarget.XXXXXX")"
 STAGING_APP_BUNDLE="$STAGING_DIR/$APP_DISPLAY_NAME.app"
 STAGING_APP_CONTENTS="$STAGING_APP_BUNDLE/Contents"
 STAGING_APP_MACOS="$STAGING_APP_CONTENTS/MacOS"
@@ -82,9 +82,9 @@ cat >"$STAGING_INFO_PLIST" <<PLIST
   <key>CFBundleDisplayName</key>
   <string>$APP_DISPLAY_NAME</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.8.1</string>
+  <string>1.8.2</string>
   <key>CFBundleVersion</key>
-  <string>16</string>
+  <string>17</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>
