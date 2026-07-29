@@ -3,13 +3,13 @@
 import PackageDescription
 
 let package = Package(
-    name: "ulfan",
+    name: "hottarget",
     platforms: [
         .macOS(.v14),
     ],
     products: [
         .executable(name: "hottarget", targets: ["HotTarget"]),
-        .executable(name: "ulfan-helper", targets: ["ULFanHelper"]),
+        .executable(name: "hottarget-helper", targets: ["HotTargetHelper"]),
     ],
     targets: [
         .target(
@@ -25,7 +25,7 @@ let package = Package(
             linkerSettings: [.linkedFramework("ServiceManagement")]
         ),
         .executableTarget(
-            name: "ULFanHelper",
+            name: "HotTargetHelper",
             dependencies: ["HotTargetCore"]
         ),
         .testTarget(name: "HotTargetTests", dependencies: ["HotTargetCore"]),
