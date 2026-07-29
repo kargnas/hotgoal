@@ -1,6 +1,6 @@
 import Dispatch
 import Foundation
-import ULFanCore
+import HotTargetCore
 
 private final class FanService: @unchecked Sendable {
     private let reader: SMCReader

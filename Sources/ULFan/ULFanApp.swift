@@ -3,7 +3,7 @@ import Darwin
 import Dispatch
 import Foundation
 import ServiceManagement
-import ULFanCore
+import HotTargetCore
 
 @main
 enum ULFanApp {

@@ -13,7 +13,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "ULFanCore",
+            name: "HotTargetCore",
             linkerSettings: [
                 .linkedFramework("IOKit"),
                 .linkedFramework("Security"),
@@ -21,13 +21,13 @@ let package = Package(
         ),
         .executableTarget(
             name: "ULFan",
-            dependencies: ["ULFanCore"],
+            dependencies: ["HotTargetCore"],
             linkerSettings: [.linkedFramework("ServiceManagement")]
         ),
         .executableTarget(
             name: "ULFanHelper",
-            dependencies: ["ULFanCore"]
+            dependencies: ["HotTargetCore"]
         ),
-        .testTarget(name: "ULFanTests", dependencies: ["ULFanCore"]),
+        .testTarget(name: "HotTargetTests", dependencies: ["HotTargetCore"]),
     ]
 )

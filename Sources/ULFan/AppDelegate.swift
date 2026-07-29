@@ -1,6 +1,6 @@
 import AppKit
 import Foundation
-import ULFanCore
+import HotTargetCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {

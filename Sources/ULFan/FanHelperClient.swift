@@ -1,5 +1,5 @@
 @preconcurrency import Foundation
-import ULFanCore
+import HotTargetCore
 
 @MainActor
 final class FanHelperClient {

@@ -1,5 +1,5 @@
 import ServiceManagement
-import ULFanCore
+import HotTargetCore
 
 enum FanHelperRegistrationState {
     case notRegistered

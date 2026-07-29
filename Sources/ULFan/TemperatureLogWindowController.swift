@@ -1,5 +1,5 @@
 import AppKit
-import ULFanCore
+import HotTargetCore
 
 @MainActor
 final class TemperatureLogWindowController: NSWindowController {
