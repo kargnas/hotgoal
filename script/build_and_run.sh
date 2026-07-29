@@ -3,7 +3,7 @@ set -euo pipefail
 
 MODE="${1:-run}"
 APP_NAME="ulfan"
-APP_DISPLAY_NAME="Ultra Fan MacBook"
+APP_DISPLAY_NAME="Hot Target"
 BUNDLE_ID="as.kargn.ulfan"
 HELPER_NAME="ulfan-helper"
 HELPER_ID="as.kargn.ulfan.helper"
@@ -82,9 +82,9 @@ cat >"$STAGING_INFO_PLIST" <<PLIST
   <key>CFBundleDisplayName</key>
   <string>$APP_DISPLAY_NAME</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.8.0</string>
+  <string>1.8.1</string>
   <key>CFBundleVersion</key>
-  <string>15</string>
+  <string>16</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>
