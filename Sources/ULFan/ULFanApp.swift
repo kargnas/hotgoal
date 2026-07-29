@@ -3,10 +3,10 @@ import Darwin
 import Dispatch
 import Foundation
 import ServiceManagement
-import ThermalIconCore
+import ULFanCore
 
 @main
-enum ThermalIconApp {
+enum ULFanApp {
     @MainActor
     static func main() {
         if runCommandLine() { return }

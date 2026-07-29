@@ -3,31 +3,31 @@
 import PackageDescription
 
 let package = Package(
-    name: "ThermalIcon",
+    name: "ulfan",
     platforms: [
         .macOS(.v14),
     ],
     products: [
-        .executable(name: "ThermalIcon", targets: ["ThermalIcon"]),
-        .executable(name: "ThermalIconFanHelper", targets: ["ThermalIconFanHelper"]),
+        .executable(name: "ulfan", targets: ["ULFan"]),
+        .executable(name: "ulfan-helper", targets: ["ULFanHelper"]),
     ],
     targets: [
         .target(
-            name: "ThermalIconCore",
+            name: "ULFanCore",
             linkerSettings: [
                 .linkedFramework("IOKit"),
                 .linkedFramework("Security"),
             ]
         ),
         .executableTarget(
-            name: "ThermalIcon",
-            dependencies: ["ThermalIconCore"],
+            name: "ULFan",
+            dependencies: ["ULFanCore"],
             linkerSettings: [.linkedFramework("ServiceManagement")]
         ),
         .executableTarget(
-            name: "ThermalIconFanHelper",
-            dependencies: ["ThermalIconCore"]
+            name: "ULFanHelper",
+            dependencies: ["ULFanCore"]
         ),
-        .testTarget(name: "ThermalIconTests", dependencies: ["ThermalIconCore"]),
+        .testTarget(name: "ULFanTests", dependencies: ["ULFanCore"]),
     ]
 )

@@ -1,6 +1,6 @@
 import AppKit
 import QuartzCore
-import ThermalIconCore
+import ULFanCore
 
 @MainActor
 final class ThermalMotesStatusView: NSView {

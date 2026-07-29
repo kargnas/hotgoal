@@ -1,5 +1,5 @@
 import ServiceManagement
-import ThermalIconCore
+import ULFanCore
 
 enum FanHelperRegistrationState {
     case notRegistered

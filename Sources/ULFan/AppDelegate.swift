@@ -1,6 +1,6 @@
 import AppKit
 import Foundation
-import ThermalIconCore
+import ULFanCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -93,7 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func configureStatusItem() {
         guard let button = statusItem.button else { return }
-        statusItem.autosaveName = "ThermalIconMenuBarItem"
+        statusItem.autosaveName = "ULFanMenuBarItem"
         button.imageScaling = .scaleProportionallyDown
         button.setAccessibilityLabel("CPU temperature")
         statusView.frame = button.bounds

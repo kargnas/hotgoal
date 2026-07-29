@@ -1,5 +1,5 @@
 import XCTest
-@testable import ThermalIconCore
+@testable import ULFanCore
 
 final class TemperaturePresentationTests: XCTestCase {
     func testM4DormantPerformanceCoreTemperatureIsRejected() {

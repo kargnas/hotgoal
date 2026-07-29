@@ -1,11 +1,11 @@
 import Dispatch
 import Foundation
-import ThermalIconCore
+import ULFanCore
 
 private final class FanService: @unchecked Sendable {
     private let reader: SMCReader
     private let lock = NSRecursiveLock()
-    private let timerQueue = DispatchQueue(label: "as.kargn.ThermalIcon.FanHelper.temperature-control")
+    private let timerQueue = DispatchQueue(label: "as.kargn.ulfan.helper.temperature-control")
     private var controlTimer: DispatchSourceTimer?
     private var activeControl: FanControl?
     private var temperatureAverage = TemperatureAverage()
@@ -58,13 +58,13 @@ private final class FanService: @unchecked Sendable {
             do {
                 try reconcileLocked(control)
             } catch {
-                NSLog("ThermalIconFanHelper fan control failed: \(error)")
+                NSLog("ulfan-helper fan control failed: \(error)")
                 activeControl = nil
                 cancelControlTimerLocked()
                 do {
                     try reader.restoreAutomatic()
                 } catch {
-                    NSLog("ThermalIconFanHelper automatic reset failed: \(error)")
+                    NSLog("ulfan-helper automatic reset failed: \(error)")
                 }
             }
         }
@@ -211,13 +211,13 @@ private final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
         let shouldRestore = connections.isEmpty
         lock.unlock()
         if shouldRestore, case let .failure(error) = fanService.restoreAutomatic() {
-            NSLog("ThermalIconFanHelper disconnect reset failed: \(error)")
+        NSLog("ulfan-helper disconnect reset failed: \(error)")
         }
     }
 }
 
 guard geteuid() == 0 else {
-    NSLog("ThermalIconFanHelper must run as root")
+    NSLog("ulfan-helper must run as root")
     exit(77)
 }
 
@@ -225,13 +225,13 @@ let reader: SMCReader
 do {
     reader = try SMCReader()
 } catch {
-    NSLog("ThermalIconFanHelper cannot open AppleSMC: \(error)")
+    NSLog("ulfan-helper cannot open AppleSMC: \(error)")
     exit(78)
 }
 
 private let fanService = FanService(reader: reader)
 if case let .failure(error) = fanService.restoreAutomatic() {
-    NSLog("ThermalIconFanHelper startup reset failed: \(error)")
+    NSLog("ulfan-helper startup reset failed: \(error)")
 }
 private let exportedService = ExportedFanService(service: fanService)
 private let delegate = ListenerDelegate(exportedService: exportedService, fanService: fanService)
@@ -245,14 +245,14 @@ do {
     ).text
     listener.setConnectionCodeSigningRequirement(requirement)
 } catch {
-    NSLog("ThermalIconFanHelper cannot establish signed client requirement: \(error)")
+    NSLog("ulfan-helper cannot establish signed client requirement: \(error)")
     exit(78)
 }
 
 listener.delegate = delegate
 signal(SIGTERM, SIG_IGN)
 signal(SIGINT, SIG_IGN)
-let signalQueue = DispatchQueue(label: "as.kargn.ThermalIcon.FanHelper.signal")
+let signalQueue = DispatchQueue(label: "as.kargn.ulfan.helper.signal")
 let signals = [SIGTERM, SIGINT].map { signalNumber in
     let source = DispatchSource.makeSignalSource(signal: signalNumber, queue: signalQueue)
     source.setEventHandler {

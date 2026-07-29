@@ -1,5 +1,5 @@
 import AppKit
-import ThermalIconCore
+import ULFanCore
 
 @MainActor
 final class TemperatureLogWindowController: NSWindowController {
