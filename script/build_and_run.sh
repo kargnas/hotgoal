@@ -2,11 +2,11 @@
 set -euo pipefail
 
 MODE="${1:-run}"
-APP_NAME="ThermalIcon"
+APP_NAME="ulfan"
 APP_DISPLAY_NAME="Ultra Fan MacBook"
-BUNDLE_ID="as.kargn.ThermalIcon"
-HELPER_NAME="ThermalIconFanHelper"
-HELPER_ID="as.kargn.ThermalIcon.FanHelper"
+BUNDLE_ID="as.kargn.ulfan"
+HELPER_NAME="ulfan-helper"
+HELPER_ID="as.kargn.ulfan.helper"
 HELPER_PLIST_NAME="$HELPER_ID.plist"
 MIN_SYSTEM_VERSION="14.0"
 
@@ -33,7 +33,7 @@ if [[ -z "$SIGNING_IDENTITY" ]]; then
 fi
 
 mkdir -p "$DIST_DIR"
-STAGING_DIR="$(mktemp -d "$DIST_DIR/.thermal-icon.XXXXXX")"
+STAGING_DIR="$(mktemp -d "$DIST_DIR/.ulfan.XXXXXX")"
 STAGING_APP_BUNDLE="$STAGING_DIR/$APP_DISPLAY_NAME.app"
 STAGING_APP_CONTENTS="$STAGING_APP_BUNDLE/Contents"
 STAGING_APP_MACOS="$STAGING_APP_CONTENTS/MacOS"
