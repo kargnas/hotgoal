@@ -3,7 +3,7 @@ set -euo pipefail
 
 MODE="${1:-run}"
 APP_NAME="ThermalIcon"
-APP_DISPLAY_NAME="Thermal Icon"
+APP_DISPLAY_NAME="Ultra Fan MacBook"
 BUNDLE_ID="as.kargn.ThermalIcon"
 HELPER_NAME="ThermalIconFanHelper"
 HELPER_ID="as.kargn.ThermalIcon.FanHelper"
@@ -79,10 +79,12 @@ cat >"$STAGING_INFO_PLIST" <<PLIST
   <string>$BUNDLE_ID</string>
   <key>CFBundleName</key>
   <string>$APP_DISPLAY_NAME</string>
+  <key>CFBundleDisplayName</key>
+  <string>$APP_DISPLAY_NAME</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.7.1</string>
+  <string>1.8.0</string>
   <key>CFBundleVersion</key>
-  <string>14</string>
+  <string>15</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>
