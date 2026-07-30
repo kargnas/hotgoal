@@ -11,6 +11,9 @@ let package = Package(
         .executable(name: "hottarget", targets: ["HotTarget"]),
         .executable(name: "hottarget-helper", targets: ["HotTargetHelper"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.8.1"),
+    ],
     targets: [
         .target(
             name: "HotTargetCore",
@@ -21,7 +24,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "HotTarget",
-            dependencies: ["HotTargetCore"],
+            dependencies: [
+                "HotTargetCore",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
             linkerSettings: [.linkedFramework("ServiceManagement")]
         ),
         .executableTarget(
