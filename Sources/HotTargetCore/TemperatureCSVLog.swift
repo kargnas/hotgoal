@@ -49,8 +49,13 @@ public final class TemperatureCSVLog {
             for fileURL in try FileManager.default.contentsOfDirectory(
                 at: directoryURL,
                 includingPropertiesForKeys: [.contentModificationDateKey]
-            ) where try fileURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate.map({ $0 < cutoff }) == true {
-                try FileManager.default.removeItem(at: fileURL)
+            ) where fileURL.pathExtension == "csv" {
+                let modificationDate = try fileURL.resourceValues(
+                    forKeys: [.contentModificationDateKey]
+                ).contentModificationDate
+                if modificationDate.map({ $0 < cutoff }) == true {
+                    try FileManager.default.removeItem(at: fileURL)
+                }
             }
             lastCleanupAt = date
         } catch {

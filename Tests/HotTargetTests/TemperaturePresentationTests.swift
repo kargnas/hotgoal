@@ -178,12 +178,18 @@ final class TemperaturePresentationTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
+        let now = Date(timeIntervalSince1970: 1_000_000)
         let expired = directory.appendingPathComponent("expired.csv")
         try Data().write(to: expired)
-        let now = Date(timeIntervalSince1970: 1_000_000)
         try FileManager.default.setAttributes(
             [.modificationDate: now.addingTimeInterval(-TemperatureCSVLog.retention - 1)],
             ofItemAtPath: expired.path
+        )
+        let unrelated = directory.appendingPathComponent("keep.txt")
+        try Data("keep".utf8).write(to: unrelated)
+        try FileManager.default.setAttributes(
+            [.modificationDate: now.addingTimeInterval(-TemperatureCSVLog.retention - 1)],
+            ofItemAtPath: unrelated.path
         )
 
         let log = TemperatureCSVLog(directoryURL: directory)
@@ -192,9 +198,12 @@ final class TemperaturePresentationTests: XCTestCase {
         log.record(targetCelsius: 40, actualCelsius: 43, at: now.addingTimeInterval(2))
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: expired.path))
-        let contents = try String(contentsOf: XCTUnwrap(
-            FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil).first
-        ), encoding: .utf8)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: unrelated.path))
+        let csvFile = try XCTUnwrap(
+            FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+                .first { $0.pathExtension == "csv" }
+        )
+        let contents = try String(contentsOf: csvFile, encoding: .utf8)
         XCTAssertEqual(contents.split(separator: "\n").count, 4)
         XCTAssertTrue(contents.contains("40.0,45.0"))
         XCTAssertTrue(contents.contains("40.0,44.0"))
