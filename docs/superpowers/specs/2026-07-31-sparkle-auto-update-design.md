@@ -14,7 +14,7 @@ Hot Target의 공개 GitHub 저장소 `kargnas/hottarget`에서 notarized DMG와
 - 자동 release: `main` push 후 10분 debounce, patch bump
 - 첫 release: tag가 없으므로 기존 앱 버전 `1.8.2` 다음인 `v1.8.3`
 - 수동 release: workflow dispatch에서 patch/minor/major 선택
-- source, docs, scripts, workflow가 바뀐 main push만 자동 release 대상으로 삼는다.
+- source, package, scripts, tests, workflow가 바뀐 main push만 자동 release 대상으로 삼고 documentation-only push는 제외한다.
 
 ## 앱 통합
 
@@ -64,7 +64,7 @@ Sparkle `generate_keys --account "Hot Target"`로 전용 keypair를 만든다. p
 
 ## 저장소 rename 반영
 
-local `origin`을 `https://github.com/kargnas/hottarget.git`로 바꾸고 README, release runbook, appcast URL의 이전 `modern-mac-fan-control` 주소를 모두 canonical URL로 교체한다. 사용자 소유 `.vscode/`는 stage하거나 commit하지 않는다.
+local `origin`을 `https://github.com/kargnas/hottarget.git`로 바꾸고 README, release runbook, appcast URL의 이전 저장소 주소를 모두 canonical URL로 교체한다. 사용자 소유 `.vscode/`는 stage하거나 commit하지 않는다.
 
 ## 오류 처리와 안전장치
 
