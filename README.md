@@ -16,12 +16,13 @@ Native macOS menu-bar utility that automatically adjusts fan speed to maintain a
 
 ## Maintain a target temperature
 
-Choose **Maintain Target Temperature** from the menu and select 40–85 °C in 5 °C steps. Hot Target reads the CPU temperature every second and adjusts each fan's existing SMC target to bring the latest 10-sample average toward your selection.
+Choose **Maintain Target Temperature** from the menu and select 40–85 °C in 5 °C steps. The privileged helper reads the CPU temperature every second and adjusts each fan's existing SMC target to bring the latest 10-sample average toward your selection.
 
 The feedback loop changes fan speed gradually instead of jumping straight between fixed speeds:
 
-- Above the target, it raises the SMC target by 10 RPM per degree of error, capped at 100 RPM per cycle.
-- Below the target, it lowers the SMC target by 20 RPM per degree, capped at 200 RPM per cycle.
+- Above the target, it requests 10 additional RPM per degree of error.
+- Below the target, it requests 20 fewer RPM per degree of error.
+- A separate stabilizer bounds subsequent changes to 100 RPM per second upward and 200 RPM per second downward.
 - Inside a ±0.5 °C deadband, it holds the current target to avoid fan hunting.
 - At an instantaneous 90 °C, it immediately requests the hardware maximum for every fan.
 
@@ -70,6 +71,19 @@ Download the latest signed build from [GitHub Releases](https://github.com/kargn
 2. Choose **Maintain Target Temperature → Enable Fan Control…**.
 3. Approve **Hot Target.app** in **System Settings → General → Login Items & Extensions**.
 4. Return to **Maintain Target Temperature** and choose your target.
+
+## Uninstall
+
+1. Choose **Maintain Target Temperature → Preset Fan Modes → System Default**.
+2. Before deleting the app, unregister its helper:
+
+   ```bash
+   "/Applications/Hot Target.app/Contents/MacOS/hottarget" --unregister-helper
+   ```
+
+   If Hot Target is installed elsewhere, replace `/Applications/Hot Target.app` with its actual path.
+3. Quit Hot Target and remove **Hot Target.app**.
+4. Delete `~/Library/Logs/hottarget/` to remove retained CSV history. To clear display preferences too, remove `~/Library/Preferences/as.kargn.hottarget.plist`.
 
 ## Build locally
 
