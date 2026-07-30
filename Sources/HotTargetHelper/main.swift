@@ -85,12 +85,12 @@ private final class FanService: @unchecked Sendable {
         guard let temperature = reader.cpuAverageTemperature(), temperature.isFinite else {
             throw SMCReader.ReaderError.temperatureUnavailable
         }
-        let controlTemperature = temperatureAverage.append(
-            temperature,
-            at: ProcessInfo.processInfo.systemUptime
-        )
+        let now = ProcessInfo.processInfo.systemUptime
+        let controlTemperature = temperatureAverage.append(temperature, at: now)
         if temperature >= 90 {
-            try reader.setFanPercentage(100)
+            let fans = try reader.fanSnapshots()
+            guard !fans.isEmpty else { throw SMCReader.ReaderError.invalidFan }
+            try reader.setFanTargets(stabilizer.forceMaximumTargets(for: fans, at: now))
             return
         }
         guard let controlTemperature else { return }
@@ -114,7 +114,7 @@ private final class FanService: @unchecked Sendable {
         // At the 90 °C safety point, maximum fan speed must never wait for slew limiting.
         let targets = stabilizer.limitTargets(
             requestedTargets,
-            at: ProcessInfo.processInfo.systemUptime,
+            at: now,
             forceImmediate: controlTemperature >= 90
         )
         try reader.setFanTargets(targets)

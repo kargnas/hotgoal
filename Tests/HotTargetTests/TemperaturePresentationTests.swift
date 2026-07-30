@@ -130,6 +130,19 @@ final class TemperaturePresentationTests: XCTestCase {
             stabilizer.limitTargets([5_800, 5_800], at: 3.1, forceImmediate: true),
             [5_800, 5_800]
         )
+
+        let safetyFan = FanSnapshot(
+            index: 0,
+            currentRPM: 2_000,
+            minimumRPM: 1_500,
+            maximumRPM: 6_000,
+            targetRPM: 2_000,
+            mode: 1
+        )
+        var safetyStabilizer = FanTargetStabilizer()
+        XCTAssertEqual(safetyStabilizer.limitTargets([2_000], at: 0), [2_000])
+        XCTAssertEqual(safetyStabilizer.forceMaximumTargets(for: [safetyFan], at: 1), [6_000])
+        XCTAssertEqual(safetyStabilizer.limitTargets([2_000], at: 2), [5_800])
     }
 
     func testFanSnapshotValidationRejectsUnsafeRanges() {

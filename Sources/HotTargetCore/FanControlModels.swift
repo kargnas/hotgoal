@@ -194,6 +194,13 @@ public struct FanTargetStabilizer: Sendable {
 
     public init() {}
 
+    public mutating func forceMaximumTargets(
+        for fans: [FanSnapshot],
+        at time: TimeInterval
+    ) -> [Int] {
+        limitTargets(fans.map(\.maximumRPM), at: time, forceImmediate: true)
+    }
+
     public mutating func effectiveTemperature(for temperature: Double) -> Double {
         guard temperature.isFinite else { return temperature }
         let effectiveTemperature: Double
