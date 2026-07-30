@@ -1,0 +1,158 @@
+name: Release direct app
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: direct-release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release:
+    name: Build, sign, notarize, and release
+    runs-on: macos-15
+    environment: direct-release
+    timeout-minutes: 45
+    env:
+      RELEASE_DIR: dist-release
+
+    steps:
+      - name: Check out tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag
+        run: |
+          set -euo pipefail
+          TAG="$GITHUB_REF_NAME"
+          VERSION="${TAG#v}"
+          if [[ "$TAG" == "$VERSION" || ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release tag must use vMAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 17))" >> "$GITHUB_ENV"
+
+      - name: Run tests
+        run: swift test
+
+      - name: Import Developer ID certificate and notary key
+        env:
+          DEVELOPER_ID_APPLICATION_P12_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_BASE64 }}
+          DEVELOPER_ID_APPLICATION_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_PASSWORD }}
+          NOTARYTOOL_KEY_P8_BASE64: ${{ secrets.NOTARYTOOL_KEY_P8_BASE64 }}
+          NOTARYTOOL_KEY_ID: ${{ secrets.NOTARYTOOL_KEY_ID }}
+          NOTARYTOOL_ISSUER_ID: ${{ secrets.NOTARYTOOL_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PATH="$RUNNER_TEMP/hottarget-signing.keychain-db"
+          P12_PATH="$RUNNER_TEMP/developer-id-application.p12"
+          NOTARY_KEY_PATH="$RUNNER_TEMP/notarytool-key.p8"
+          for name in \
+            DEVELOPER_ID_APPLICATION_P12_BASE64 \
+            DEVELOPER_ID_APPLICATION_P12_PASSWORD \
+            NOTARYTOOL_KEY_P8_BASE64 \
+            NOTARYTOOL_KEY_ID \
+            NOTARYTOOL_ISSUER_ID; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "missing GitHub Actions secret: $name" >&2
+              exit 1
+            fi
+          done
+
+          umask 077
+          printf '%s' "$DEVELOPER_ID_APPLICATION_P12_BASE64" | /usr/bin/base64 -D > "$P12_PATH"
+          printf '%s' "$NOTARYTOOL_KEY_P8_BASE64" | /usr/bin/base64 -D > "$NOTARY_KEY_PATH"
+          [[ -s "$P12_PATH" && -s "$NOTARY_KEY_PATH" ]]
+
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 32)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$P12_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$DEVELOPER_ID_APPLICATION_P12_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+
+          SIGNING_IDENTITY="$(security find-identity -p codesigning -v "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Application:/ { print $2; exit }')"
+          if [[ -z "$SIGNING_IDENTITY" ]]; then
+            echo "Developer ID Application identity not found in imported PKCS#12" >&2
+            exit 1
+          fi
+          echo "SIGNING_IDENTITY=$SIGNING_IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Build and sign universal app
+        run: OUTPUT_DIR="$RELEASE_DIR" ./script/package_release.sh
+
+      - name: Notarize and staple app
+        env:
+          NOTARYTOOL_KEY_ID: ${{ secrets.NOTARYTOOL_KEY_ID }}
+          NOTARYTOOL_ISSUER_ID: ${{ secrets.NOTARYTOOL_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          APP="$RELEASE_DIR/Hot Target.app"
+          ARCHIVE="$RELEASE_DIR/Hot-Target-$VERSION.zip"
+          NOTARY_KEY_PATH="$RUNNER_TEMP/notarytool-key.p8"
+
+          xcrun notarytool submit "$ARCHIVE" \
+            --key "$NOTARY_KEY_PATH" \
+            --key-id "$NOTARYTOOL_KEY_ID" \
+            --issuer "$NOTARYTOOL_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$APP"
+          xcrun stapler validate "$APP"
+          spctl --assess --type execute --verbose=4 "$APP"
+
+          rm -f "$ARCHIVE"
+          /usr/bin/ditto -c -k --keepParent --sequesterRsrc "$APP" "$ARCHIVE"
+          (
+            cd "$RELEASE_DIR"
+            shasum -a 256 "Hot-Target-$VERSION.zip" > "Hot-Target-$VERSION.zip.sha256"
+          )
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              "$RELEASE_DIR/Hot-Target-$VERSION.zip" \
+              "$RELEASE_DIR/Hot-Target-$VERSION.zip.sha256" \
+              --clobber
+            gh release edit "$GITHUB_REF_NAME" --title "Hot Target $VERSION"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "$RELEASE_DIR/Hot-Target-$VERSION.zip" \
+              "$RELEASE_DIR/Hot-Target-$VERSION.zip.sha256" \
+              --verify-tag \
+              --generate-notes \
+              --title "Hot Target $VERSION"
+          fi
+
+      - name: Delete temporary signing material
+        if: always()
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/hottarget-signing.keychain-db"
+          P12_PATH="$RUNNER_TEMP/developer-id-application.p12"
+          NOTARY_KEY_PATH="$RUNNER_TEMP/notarytool-key.p8"
+          security list-keychains -d user -s "$HOME/Library/Keychains/login.keychain-db" >/dev/null 2>&1 || true
+          security delete-keychain "$KEYCHAIN_PATH" >/dev/null 2>&1 || true
+          rm -f "$P12_PATH" "$NOTARY_KEY_PATH"
