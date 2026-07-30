@@ -45,7 +45,7 @@ require_text "$WORKFLOW" 'xcrun stapler validate'
 require_text "$WORKFLOW" 'hdiutil create'
 require_text "$WORKFLOW" 'sign_update'
 require_text "$WORKFLOW" 'appcast.xml'
-require_text "$WORKFLOW" 'Hot-Target-$VERSION.dmg'
+require_text "$WORKFLOW" "Hot-Target-\$VERSION.dmg"
 require_text "$WORKFLOW" 'gh release create'
 require_text "$WORKFLOW" 'script/package_release.sh'
 require_text "$WORKFLOW" 'security delete-keychain'

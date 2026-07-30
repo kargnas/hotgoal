@@ -52,16 +52,29 @@ require_text "$WORKFLOW" 'branches:'
 require_text "$WORKFLOW" '- main'
 require_text "$WORKFLOW" 'workflow_dispatch:'
 require_text "$WORKFLOW" 'sleep 600'
-require_text "$WORKFLOW" 'cancel-in-progress: true'
+require_text "$WORKFLOW" 'cancel-in-progress:'
+require_text "$WORKFLOW" "github.ref == 'refs/heads/main'"
 require_text "$WORKFLOW" 'secrets.SPARKLE_PRIVATE_KEY'
+require_text "$WORKFLOW" 'contents: read'
+require_text "$WORKFLOW" 'contents: write'
+require_text "$WORKFLOW" 'timeout-minutes: 90'
 require_text "$WORKFLOW" 'hdiutil create'
-require_text "$WORKFLOW" 'sign_update'
+require_text "$WORKFLOW" 'SIGN_UPDATE=".build/artifacts/sparkle/Sparkle/bin/sign_update"'
+require_text "$WORKFLOW" 'SPARKLE_PRIVATE_KEY does not match SUPublicEDKey'
+require_text "$WORKFLOW" 'sparkle:minimumSystemVersion'
+require_text "$WORKFLOW" 'git fetch --force origin'
 require_text "$WORKFLOW" 'appcast.xml'
 require_text "$WORKFLOW" "Hot-Target-\$VERSION.dmg"
 require_text "$WORKFLOW" "releases/download/\$TAG/Hot-Target-\$VERSION.dmg"
 
 if grep -Fq -- 'codesign --deep' "$PACKAGER"; then
   fail "package_release.sh must not use codesign --deep for signing"
+fi
+if grep -Fq -- "'README.md'" "$WORKFLOW" || grep -Fq -- "'docs/**'" "$WORKFLOW"; then
+  fail "documentation-only pushes must not publish an automatic app release"
+fi
+if grep -Fq -- 'Sparkle-2.8.1.tar.xz' "$WORKFLOW"; then
+  fail "release workflow must use the checksum-verified SwiftPM sign_update artifact"
 fi
 
 printf 'SPARKLE_CONFIG_TEST_PASSED\n'

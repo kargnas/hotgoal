@@ -2,68 +2,222 @@ name: Release direct app
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+    paths:
+      - 'Sources/**'
+      - 'Tests/**'
+      - 'Package.swift'
+      - 'Package.resolved'
+      - 'script/**'
+      - '.github/workflows/release-direct.yml'
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump type
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
-  contents: write
-
-concurrency:
-  group: direct-release-${{ github.ref }}
-  cancel-in-progress: false
+  contents: read
 
 defaults:
   run:
     shell: bash
 
 jobs:
+  prepare:
+    name: Resolve release version
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: direct-release-prepare-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'main' || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    outputs:
+      should_release: ${{ steps.release.outputs.should_release }}
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      build_number: ${{ steps.release.outputs.build_number }}
+      commit_sha: ${{ steps.release.outputs.commit_sha }}
+
+    steps:
+      - name: Check main release policy
+        id: policy
+        env:
+          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" && "$HEAD_COMMIT_MESSAGE" == *"[skip release]"* ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Wait 10 minutes for more main commits
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.policy.outputs.skip != 'true'
+        run: sleep 600
+
+      - name: Check out release source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.ref_type == 'tag' && github.ref_name || 'main' }}
+          fetch-depth: 0
+
+      - name: Resolve version and commit
+        id: release
+        env:
+          POLICY_SKIP: ${{ steps.policy.outputs.skip }}
+          REQUESTED_BUMP: ${{ inputs.bump || 'patch' }}
+        run: |
+          set -euo pipefail
+          write_release_outputs() {
+            local should_release="$1"
+            local version="${2:-}"
+            local tag="${3:-}"
+            local build_number="${4:-}"
+            local commit_sha="${5:-}"
+            {
+              echo "should_release=$should_release"
+              [[ -z "$version" ]] || echo "version=$version"
+              [[ -z "$tag" ]] || echo "tag=$tag"
+              [[ -z "$build_number" ]] || echo "build_number=$build_number"
+              [[ -z "$commit_sha" ]] || echo "commit_sha=$commit_sha"
+            } >> "$GITHUB_OUTPUT"
+          }
+
+          if [[ "$POLICY_SKIP" == "true" ]]; then
+            write_release_outputs false
+            exit 0
+          fi
+
+          COMMIT_SHA="$(git rev-parse HEAD)"
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
+            while IFS= read -r pointed_tag; do
+              if [[ "$pointed_tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+                echo "HEAD is already released as $pointed_tag; skipping"
+                write_release_outputs false
+                exit 0
+              fi
+            done < <(git tag --points-at HEAD)
+          fi
+
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="$GITHUB_REF_NAME"
+            VERSION="${TAG#v}"
+            if [[ "$TAG" == "$VERSION" || ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+              echo "release tag must use vMAJOR.MINOR.PATCH" >&2
+              exit 1
+            fi
+          else
+            LATEST_TAG=""
+            while IFS= read -r candidate; do
+              if [[ "$candidate" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+                LATEST_TAG="$candidate"
+                break
+              fi
+            done < <(git tag --list 'v*' --sort=-v:refname)
+
+            BASE_VERSION="${LATEST_TAG#v}"
+            [[ -n "$BASE_VERSION" ]] || BASE_VERSION="1.8.2"
+            IFS=. read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
+            BUMP="patch"
+            [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]] && BUMP="$REQUESTED_BUMP"
+            case "$BUMP" in
+              patch) PATCH=$((10#$PATCH + 1)) ;;
+              minor) MINOR=$((10#$MINOR + 1)); PATCH=0 ;;
+              major) MAJOR=$((10#$MAJOR + 1)); MINOR=0; PATCH=0 ;;
+              *) echo "unsupported bump type: $BUMP" >&2; exit 1 ;;
+            esac
+            VERSION="$MAJOR.$MINOR.$PATCH"
+            TAG="v$VERSION"
+            if git rev-parse --verify --quiet "refs/tags/$TAG" >/dev/null; then
+              echo "refusing to overwrite existing tag: $TAG" >&2
+              exit 1
+            fi
+          fi
+
+          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+          for component in "$MAJOR" "$MINOR" "$PATCH"; do
+            if (( 10#$component > 999 )); then
+              echo "version component exceeds supported build-number range: $VERSION" >&2
+              exit 1
+            fi
+          done
+          BUILD_NUMBER=$((10#$MAJOR * 1000000 + 10#$MINOR * 1000 + 10#$PATCH))
+          (( BUILD_NUMBER > 0 )) || { echo "build number must be positive" >&2; exit 1; }
+
+          write_release_outputs true "$VERSION" "$TAG" "$BUILD_NUMBER" "$COMMIT_SHA"
+
   release:
     name: Build, sign, notarize, and release
+    if: needs.prepare.outputs.should_release == 'true'
+    needs: prepare
     runs-on: macos-15
     environment: direct-release
-    timeout-minutes: 45
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    concurrency:
+      group: direct-release-publish-${{ needs.prepare.outputs.tag }}
+      cancel-in-progress: false
     env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      COMMIT_SHA: ${{ needs.prepare.outputs.commit_sha }}
       RELEASE_DIR: dist-release
 
     steps:
-      - name: Check out tag
+      - name: Check out exact release commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ needs.prepare.outputs.commit_sha }}
           fetch-depth: 0
 
-      - name: Validate release tag
+      - name: Verify release tag ownership
         run: |
           set -euo pipefail
-          TAG="$GITHUB_REF_NAME"
-          VERSION="${TAG#v}"
-          if [[ "$TAG" == "$VERSION" || ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "release tag must use vMAJOR.MINOR.PATCH" >&2
-            exit 1
+          REMOTE_TAG="$(git ls-remote origin "refs/tags/$TAG" | awk '{print $1}')"
+          if [[ -n "$REMOTE_TAG" ]]; then
+            git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+            TAG_COMMIT="$(git rev-list -n 1 "refs/tags/$TAG")"
+            [[ "$TAG_COMMIT" == "$COMMIT_SHA" ]] || {
+              echo "$TAG is already owned by $TAG_COMMIT; refusing to build $COMMIT_SHA" >&2
+              exit 1
+            }
           fi
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 17))" >> "$GITHUB_ENV"
 
       - name: Run tests
         run: swift test
 
-      - name: Import Developer ID certificate and notary key
+      - name: Import signing and update credentials
         env:
           DEVELOPER_ID_APPLICATION_P12_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_BASE64 }}
           DEVELOPER_ID_APPLICATION_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_PASSWORD }}
           NOTARYTOOL_KEY_P8_BASE64: ${{ secrets.NOTARYTOOL_KEY_P8_BASE64 }}
           NOTARYTOOL_KEY_ID: ${{ secrets.NOTARYTOOL_KEY_ID }}
           NOTARYTOOL_ISSUER_ID: ${{ secrets.NOTARYTOOL_ISSUER_ID }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           KEYCHAIN_PATH="$RUNNER_TEMP/hottarget-signing.keychain-db"
           P12_PATH="$RUNNER_TEMP/developer-id-application.p12"
           NOTARY_KEY_PATH="$RUNNER_TEMP/notarytool-key.p8"
+          SPARKLE_KEY_PATH="$RUNNER_TEMP/sparkle-private-key"
           for name in \
             DEVELOPER_ID_APPLICATION_P12_BASE64 \
             DEVELOPER_ID_APPLICATION_P12_PASSWORD \
             NOTARYTOOL_KEY_P8_BASE64 \
             NOTARYTOOL_KEY_ID \
-            NOTARYTOOL_ISSUER_ID; do
+            NOTARYTOOL_ISSUER_ID \
+            SPARKLE_PRIVATE_KEY; do
             if [[ -z "${!name:-}" ]]; then
               echo "missing GitHub Actions secret: $name" >&2
               exit 1
@@ -73,7 +227,8 @@ jobs:
           umask 077
           printf '%s' "$DEVELOPER_ID_APPLICATION_P12_BASE64" | /usr/bin/base64 -D > "$P12_PATH"
           printf '%s' "$NOTARYTOOL_KEY_P8_BASE64" | /usr/bin/base64 -D > "$NOTARY_KEY_PATH"
-          [[ -s "$P12_PATH" && -s "$NOTARY_KEY_PATH" ]]
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$SPARKLE_KEY_PATH"
+          [[ -s "$P12_PATH" && -s "$NOTARY_KEY_PATH" && -s "$SPARKLE_KEY_PATH" ]]
 
           KEYCHAIN_PASSWORD="$(openssl rand -hex 32)"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -92,16 +247,13 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN_PATH"
 
           SIGNING_IDENTITY="$(security find-identity -p codesigning -v "$KEYCHAIN_PATH" | awk -F'"' '/Developer ID Application:/ { print $2; exit }')"
-          if [[ -z "$SIGNING_IDENTITY" ]]; then
-            echo "Developer ID Application identity not found in imported PKCS#12" >&2
-            exit 1
-          fi
+          [[ -n "$SIGNING_IDENTITY" ]] || { echo "Developer ID Application identity not found" >&2; exit 1; }
           echo "SIGNING_IDENTITY=$SIGNING_IDENTITY" >> "$GITHUB_ENV"
 
       - name: Build and sign universal app
         run: OUTPUT_DIR="$RELEASE_DIR" ./script/package_release.sh
 
-      - name: Notarize and staple app
+      - name: Notarize app and build notarized DMG
         env:
           NOTARYTOOL_KEY_ID: ${{ secrets.NOTARYTOOL_KEY_ID }}
           NOTARYTOOL_ISSUER_ID: ${{ secrets.NOTARYTOOL_ISSUER_ID }}
@@ -109,41 +261,145 @@ jobs:
           set -euo pipefail
           APP="$RELEASE_DIR/Hot Target.app"
           ARCHIVE="$RELEASE_DIR/Hot-Target-$VERSION.zip"
+          DMG="$RELEASE_DIR/Hot-Target-$VERSION.dmg"
+          DMG_STAGE="$RUNNER_TEMP/hottarget-dmg-stage"
           NOTARY_KEY_PATH="$RUNNER_TEMP/notarytool-key.p8"
 
           xcrun notarytool submit "$ARCHIVE" \
             --key "$NOTARY_KEY_PATH" \
             --key-id "$NOTARYTOOL_KEY_ID" \
             --issuer "$NOTARYTOOL_ISSUER_ID" \
-            --wait
+            --wait \
+            --timeout 30m
           xcrun stapler staple "$APP"
           xcrun stapler validate "$APP"
           spctl --assess --type execute --verbose=4 "$APP"
 
+          rm -rf "$DMG_STAGE"
+          mkdir -p "$DMG_STAGE"
+          /usr/bin/ditto "$APP" "$DMG_STAGE/Hot Target.app"
+          ln -s /Applications "$DMG_STAGE/Applications"
+          hdiutil create \
+            -volname "Hot Target" \
+            -srcfolder "$DMG_STAGE" \
+            -ov \
+            -format UDZO \
+            "$DMG"
+          codesign --force --options runtime --timestamp \
+            --sign "$SIGNING_IDENTITY" \
+            "$DMG"
+          xcrun notarytool submit "$DMG" \
+            --key "$NOTARY_KEY_PATH" \
+            --key-id "$NOTARYTOOL_KEY_ID" \
+            --issuer "$NOTARYTOOL_ISSUER_ID" \
+            --wait \
+            --timeout 30m
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG"
           rm -f "$ARCHIVE"
-          /usr/bin/ditto -c -k --keepParent --sequesterRsrc "$APP" "$ARCHIVE"
+
+      - name: Sign update and generate appcast
+        run: |
+          set -euo pipefail
+          DMG="$RELEASE_DIR/Hot-Target-$VERSION.dmg"
+          CHECKSUM="$DMG.sha256"
+          APPCAST="$RELEASE_DIR/appcast.xml"
+          SPARKLE_KEY_PATH="$RUNNER_TEMP/sparkle-private-key"
+          SIGN_UPDATE=".build/artifacts/sparkle/Sparkle/bin/sign_update"
+          SEED_RAW="$RUNNER_TEMP/sparkle-seed.raw"
+          PRIVATE_DER="$RUNNER_TEMP/sparkle-private.der"
+
+          [[ -x "$SIGN_UPDATE" ]] || { echo "checksum-verified SwiftPM sign_update tool not found" >&2; exit 1; }
+          EXPECTED_PUBLIC_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$RELEASE_DIR/Hot Target.app/Contents/Info.plist")"
+          SEED_BASE64="$(tr -d '[:space:]' < "$SPARKLE_KEY_PATH")"
+          printf '%s' "$SEED_BASE64" | /usr/bin/base64 -D > "$SEED_RAW"
+          [[ "$(stat -f '%z' "$SEED_RAW")" -eq 32 ]] || {
+            echo "SPARKLE_PRIVATE_KEY must be a base64 32-byte Ed25519 seed" >&2
+            exit 1
+          }
+          SEED_HEX="$(xxd -p "$SEED_RAW" | tr -d '\n')"
+          printf '%s' "302e020100300506032b657004220420$SEED_HEX" | xxd -r -p > "$PRIVATE_DER"
+          DERIVED_PUBLIC_KEY="$(openssl pkey -inform DER -in "$PRIVATE_DER" -pubout -outform DER | tail -c 32 | /usr/bin/base64)"
+          rm -f "$SEED_RAW" "$PRIVATE_DER"
+          [[ "$DERIVED_PUBLIC_KEY" == "$EXPECTED_PUBLIC_KEY" ]] || {
+            echo "SPARKLE_PRIVATE_KEY does not match SUPublicEDKey in the app bundle" >&2
+            exit 1
+          }
+
+          SIGNATURE_OUTPUT="$("$SIGN_UPDATE" "$DMG" --ed-key-file "$SPARKLE_KEY_PATH")"
+          ED_SIGNATURE="$(printf '%s\n' "$SIGNATURE_OUTPUT" | awk -F'"' '/sparkle:edSignature=/{print $2; exit}')"
+          [[ -n "$ED_SIGNATURE" ]] || { echo "Sparkle EdDSA signature was not generated" >&2; exit 1; }
+          DMG_LENGTH="$(stat -f '%z' "$DMG")"
+          PUB_DATE="$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')"
+
+          cat > "$APPCAST" <<APPCAST_XML
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+            <channel>
+              <title>Hot Target Updates</title>
+              <link>https://github.com/kargnas/hottarget/releases/latest/download/appcast.xml</link>
+              <description>Hot Target automatic updates</description>
+              <language>en</language>
+              <item>
+                <title>Hot Target $VERSION</title>
+                <pubDate>$PUB_DATE</pubDate>
+                <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+                <sparkle:releaseNotesLink>https://github.com/kargnas/hottarget/releases/tag/$TAG</sparkle:releaseNotesLink>
+                <enclosure
+                  url="https://github.com/kargnas/hottarget/releases/download/$TAG/Hot-Target-$VERSION.dmg"
+                  sparkle:version="$BUILD_NUMBER"
+                  sparkle:shortVersionString="$VERSION"
+                  sparkle:edSignature="$ED_SIGNATURE"
+                  length="$DMG_LENGTH"
+                  type="application/octet-stream" />
+              </item>
+            </channel>
+          </rss>
+          APPCAST_XML
+
+          xmllint --noout "$APPCAST"
           (
             cd "$RELEASE_DIR"
-            shasum -a 256 "Hot-Target-$VERSION.zip" > "Hot-Target-$VERSION.zip.sha256"
+            shasum -a 256 "Hot-Target-$VERSION.dmg" > "Hot-Target-$VERSION.dmg.sha256"
           )
+          [[ -s "$CHECKSUM" && -s "$APPCAST" ]]
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" \
-              "$RELEASE_DIR/Hot-Target-$VERSION.zip" \
-              "$RELEASE_DIR/Hot-Target-$VERSION.zip.sha256" \
-              --clobber
-            gh release edit "$GITHUB_REF_NAME" --title "Hot Target $VERSION"
-          else
-            gh release create "$GITHUB_REF_NAME" \
-              "$RELEASE_DIR/Hot-Target-$VERSION.zip" \
-              "$RELEASE_DIR/Hot-Target-$VERSION.zip.sha256" \
+          DMG="$RELEASE_DIR/Hot-Target-$VERSION.dmg"
+          CHECKSUM="$DMG.sha256"
+          APPCAST="$RELEASE_DIR/appcast.xml"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+            TAG_COMMIT="$(git rev-list -n 1 "refs/tags/$TAG")"
+            [[ "$TAG_COMMIT" == "$COMMIT_SHA" ]] || {
+              echo "release $TAG belongs to $TAG_COMMIT; refusing assets built from $COMMIT_SHA" >&2
+              exit 1
+            }
+            gh release upload "$TAG" "$DMG" "$CHECKSUM" "$APPCAST" --clobber
+            gh release edit "$TAG" --title "Hot Target $VERSION" --latest
+            exit 0
+          fi
+
+          if REMOTE_TAG="$(git ls-remote origin "refs/tags/$TAG" | awk '{print $1}')" && [[ -n "$REMOTE_TAG" ]]; then
+            git fetch origin "refs/tags/$TAG:refs/tags/$TAG"
+            TAG_COMMIT="$(git rev-list -n 1 "$TAG")"
+            [[ "$TAG_COMMIT" == "$COMMIT_SHA" ]] || { echo "$TAG points to a different commit" >&2; exit 1; }
+            gh release create "$TAG" "$DMG" "$CHECKSUM" "$APPCAST" \
               --verify-tag \
               --generate-notes \
+              --latest \
+              --title "Hot Target $VERSION"
+          else
+            gh release create "$TAG" "$DMG" "$CHECKSUM" "$APPCAST" \
+              --target "$COMMIT_SHA" \
+              --generate-notes \
+              --latest \
               --title "Hot Target $VERSION"
           fi
 
@@ -153,6 +409,9 @@ jobs:
           KEYCHAIN_PATH="$RUNNER_TEMP/hottarget-signing.keychain-db"
           P12_PATH="$RUNNER_TEMP/developer-id-application.p12"
           NOTARY_KEY_PATH="$RUNNER_TEMP/notarytool-key.p8"
+          SPARKLE_KEY_PATH="$RUNNER_TEMP/sparkle-private-key"
           security list-keychains -d user -s "$HOME/Library/Keychains/login.keychain-db" >/dev/null 2>&1 || true
           security delete-keychain "$KEYCHAIN_PATH" >/dev/null 2>&1 || true
-          rm -f "$P12_PATH" "$NOTARY_KEY_PATH"
+          rm -f "$P12_PATH" "$NOTARY_KEY_PATH" "$SPARKLE_KEY_PATH"
+          rm -f "$RUNNER_TEMP/sparkle-seed.raw" "$RUNNER_TEMP/sparkle-private.der"
+          rm -rf "$RUNNER_TEMP/hottarget-dmg-stage"
