@@ -75,6 +75,20 @@ public enum NoiseMode: String, CaseIterable, Codable, Sendable {
     }
 }
 
+public enum FanControlMenuSection: Equatable, Sendable {
+    case targetTemperature
+    case presets
+
+    public static let primaryOrder: [Self] = [.targetTemperature, .presets]
+
+    public var title: String {
+        switch self {
+        case .targetTemperature: "Maintain Target Temperature"
+        case .presets: "Preset Fan Modes"
+        }
+    }
+}
+
 public enum FanControl: Codable, Equatable, Sendable {
     case noise(NoiseMode, hotThreshold: Double)
     case targetTemperature(Double)

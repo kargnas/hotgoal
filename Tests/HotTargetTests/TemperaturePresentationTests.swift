@@ -57,6 +57,15 @@ final class TemperaturePresentationTests: XCTestCase {
         XCTAssertTrue(FanControl.targetTemperature(70).requiresContinuousControl)
     }
 
+    func testTargetTemperatureIsThePrimaryFanControlMenuSection() {
+        XCTAssertEqual(
+            FanControlMenuSection.primaryOrder,
+            [.targetTemperature, .presets]
+        )
+        XCTAssertEqual(FanControlMenuSection.targetTemperature.title, "Maintain Target Temperature")
+        XCTAssertEqual(FanControlMenuSection.presets.title, "Preset Fan Modes")
+    }
+
     func testInvalidPersistedThresholdsFallBackToDefaults() {
         XCTAssertEqual(
             TemperatureThresholds(warm: 999, hot: -1),

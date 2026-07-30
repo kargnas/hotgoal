@@ -156,31 +156,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func makeFanControlMenu() -> NSMenuItem {
-        let parent = NSMenuItem(title: "Fan Control", action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
-        let noiseMenu = NSMenu()
-        for mode in NoiseMode.allCases {
-            let item = NSMenuItem(title: mode.title, action: #selector(selectFanMode), keyEquivalent: "")
-            item.target = self
-            item.representedObject = mode.rawValue
-            noiseMenu.addItem(item)
-            noiseModeItems[mode] = item
+        let targetMenu = NSMenu()
+        noiseControlItem.title = FanControlMenuSection.presets.title
+        targetTemperatureControlItem.title = FanControlMenuSection.targetTemperature.title
+
+        for section in FanControlMenuSection.primaryOrder {
+            switch section {
+            case .targetTemperature:
+                targetTemperatureItems = FanControl.targetTemperatureChoices.map { target in
+                    let item = NSMenuItem(
+                        title: "\(Int(target)) °C",
+                        action: #selector(selectTargetTemperature),
+                        keyEquivalent: ""
+                    )
+                    item.target = self
+                    item.tag = Int(target)
+                    targetMenu.addItem(item)
+                    return item
+                }
+            case .presets:
+                targetMenu.addItem(.separator())
+                let presetMenu = NSMenu()
+                for mode in NoiseMode.allCases {
+                    let item = NSMenuItem(title: mode.title, action: #selector(selectFanMode), keyEquivalent: "")
+                    item.target = self
+                    item.representedObject = mode.rawValue
+                    presetMenu.addItem(item)
+                    noiseModeItems[mode] = item
+                }
+                noiseControlItem.submenu = presetMenu
+                targetMenu.addItem(noiseControlItem)
+            }
         }
-        noiseControlItem.submenu = noiseMenu
-        submenu.addItem(noiseControlItem)
 
-        targetTemperatureItems = addTemperatureChoices(
-            FanControl.targetTemperatureChoices,
-            to: targetTemperatureControlItem,
-            action: #selector(selectTargetTemperature)
-        )
-        submenu.addItem(targetTemperatureControlItem)
-
-        submenu.addItem(.separator())
+        targetMenu.addItem(.separator())
         helperActionItem.target = self
-        submenu.addItem(helperActionItem)
-        parent.submenu = submenu
-        return parent
+        targetMenu.addItem(helperActionItem)
+        targetTemperatureControlItem.submenu = targetMenu
+        return targetTemperatureControlItem
     }
 
     private func addTemperatureChoices(
