@@ -29,16 +29,23 @@ require_file "$RUNBOOK"
 
 require_text "$WORKFLOW" "tags:"
 require_text "$WORKFLOW" "- 'v*'"
+require_text "$WORKFLOW" "branches:"
+require_text "$WORKFLOW" "- main"
+require_text "$WORKFLOW" "workflow_dispatch:"
 require_text "$WORKFLOW" "contents: write"
 require_text "$WORKFLOW" 'secrets.DEVELOPER_ID_APPLICATION_P12_BASE64'
 require_text "$WORKFLOW" 'secrets.DEVELOPER_ID_APPLICATION_P12_PASSWORD'
 require_text "$WORKFLOW" 'secrets.NOTARYTOOL_KEY_P8_BASE64'
 require_text "$WORKFLOW" 'secrets.NOTARYTOOL_KEY_ID'
 require_text "$WORKFLOW" 'secrets.NOTARYTOOL_ISSUER_ID'
-require_text "$WORKFLOW" 'GITHUB_RUN_NUMBER + 17'
+require_text "$WORKFLOW" 'secrets.SPARKLE_PRIVATE_KEY'
 require_text "$WORKFLOW" 'xcrun notarytool submit'
 require_text "$WORKFLOW" 'xcrun stapler staple'
 require_text "$WORKFLOW" 'xcrun stapler validate'
+require_text "$WORKFLOW" 'hdiutil create'
+require_text "$WORKFLOW" 'sign_update'
+require_text "$WORKFLOW" 'appcast.xml'
+require_text "$WORKFLOW" 'Hot-Target-$VERSION.dmg'
 require_text "$WORKFLOW" 'gh release create'
 require_text "$WORKFLOW" 'script/package_release.sh'
 require_text "$WORKFLOW" 'security delete-keychain'
