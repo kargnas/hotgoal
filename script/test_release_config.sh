@@ -70,6 +70,12 @@ fi
 require_text "$ROOT_DIR/.gitignore" 'dist-release/'
 require_text "$RUNBOOK" 'DEVELOPER_ID_APPLICATION_P12_BASE64'
 require_text "$RUNBOOK" 'NOTARYTOOL_KEY_P8_BASE64'
+require_text "$RUNBOOK" 'SPARKLE_PRIVATE_KEY'
+require_text "$RUNBOOK" 'kargnas/hottarget'
+require_text "$RUNBOOK" 'main'
+require_text "$RUNBOOK" 'workflow_dispatch'
+require_text "$RUNBOOK" 'DMG'
+require_text "$RUNBOOK" 'appcast.xml'
 require_text "$RUNBOOK" 'git tag -a v'
 
 printf 'DIRECT_RELEASE_CONFIG_TEST_PASSED\n'
