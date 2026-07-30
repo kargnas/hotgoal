@@ -2,7 +2,7 @@
 
 Native macOS menu-bar utility that automatically adjusts fan speed to maintain a temperature you choose.
 
-[**Download the latest direct release →**](https://github.com/kargnas/modern-mac-fan-control/releases/latest) · [Watch the 3.6-second demo →](docs/thermal-motes.mp4) · [Screenshots ↓](#screenshots)
+[**Download the latest direct release →**](https://github.com/kargnas/hottarget/releases/latest) · [Watch the 3.6-second demo →](docs/thermal-motes.mp4) · [Screenshots ↓](#screenshots)
 
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111827?logo=apple)](https://www.apple.com/macos/)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](Package.swift)
@@ -59,18 +59,26 @@ The paired-wave animation sends a left mote followed by a right mote after 0.45 
 | Menu bar UI | AppKit + Core Animation |
 | Temperature and fan sensors | IOKit + AppleSMC |
 | Fan control | ServiceManagement + signed privileged XPC helper |
+| Automatic updates | Sparkle 2 + EdDSA-signed notarized DMG |
 | Build and tests | Swift 6 + Swift Package Manager |
 
 Hot Target is distributed directly because exact AppleSMC temperature readings and privileged fan control are not available through public sandboxed macOS APIs.
 
 ## Install and enable fan control
 
-Download the latest signed build from [GitHub Releases](https://github.com/kargnas/modern-mac-fan-control/releases/latest). Hot Target requires macOS 14 or later.
+Download the latest signed DMG from [GitHub Releases](https://github.com/kargnas/hottarget/releases/latest). Hot Target requires macOS 14 or later.
 
-1. Quit other fan-control applications.
-2. Choose **Maintain Target Temperature → Enable Fan Control…**.
-3. Approve **Hot Target.app** in **System Settings → General → Login Items & Extensions**.
-4. Return to **Maintain Target Temperature** and choose your target.
+1. Open the DMG and drag **Hot Target.app** into **Applications**.
+2. Quit other fan-control applications.
+3. Choose **Maintain Target Temperature → Enable Fan Control…**.
+4. Approve **Hot Target.app** in **System Settings → General → Login Items & Extensions**.
+5. Return to **Maintain Target Temperature** and choose your target.
+
+## Automatic updates
+
+Release builds check for updates once per day through Sparkle. A downloaded update is verified with Hot Target's EdDSA key and installed when the app quits. Choose **Check for Updates…** in the status menu to run a manual check at any time.
+
+Development bundles keep automatic checks and installation disabled so a local build is never replaced by a release build. Manual checks remain available in bundled development builds.
 
 ## Uninstall
 
@@ -88,8 +96,8 @@ Download the latest signed build from [GitHub Releases](https://github.com/kargn
 ## Build locally
 
 ```bash
-git clone https://github.com/kargnas/modern-mac-fan-control.git
-cd modern-mac-fan-control
+git clone https://github.com/kargnas/hottarget.git
+cd hottarget
 ./script/build_and_run.sh --verify
 ```
 
