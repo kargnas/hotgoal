@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import HotTargetCore
+import Sparkle
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -21,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let noiseControlItem = NSMenuItem(title: "Noise Based", action: nil, keyEquivalent: "")
     private let targetTemperatureControlItem = NSMenuItem(title: "Target Temperature", action: nil, keyEquivalent: "")
     private let helperActionItem = NSMenuItem(title: "Enable Fan Control…", action: #selector(handleHelperAction), keyEquivalent: "")
+    private var updaterController: SPUStandardUpdaterController?
     private let reader: SMCReader?
     private let helperManager = FanHelperServiceManager()
     private let helperClient = FanHelperClient()
@@ -68,6 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             updateFanItems()
         }
         configureStatusItem()
+        startUpdaterIfBundled()
         configureMenu()
         refresh()
 
@@ -149,6 +152,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         refreshItem.target = self
         menu.addItem(refreshItem)
 
+        if updaterController != nil {
+            let updateItem = NSMenuItem(
+                title: "Check for Updates…",
+                action: #selector(checkForUpdates),
+                keyEquivalent: ""
+            )
+            updateItem.target = self
+            menu.addItem(updateItem)
+        }
+
+        menu.addItem(.separator())
         let quitItem = NSMenuItem(title: "Quit Hot Target", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
@@ -521,6 +535,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         alert.addButton(withTitle: "OK")
         NSApp.activate(ignoringOtherApps: true)
         alert.runModal()
+    }
+
+    private func startUpdaterIfBundled() {
+        guard Bundle.main.bundlePath.hasSuffix(".app") else { return }
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+    }
+
+    @objc private func checkForUpdates() {
+        NSApp.activate(ignoringOtherApps: true)
+        updaterController?.checkForUpdates(self)
     }
 
     @objc private func showTemperatureLog() {
