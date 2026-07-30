@@ -1,48 +1,55 @@
 # Hot Target
 
-Native macOS menu-bar temperature monitoring with animated thermal feedback and two guarded fan controllers.
+Native macOS menu-bar utility that automatically adjusts fan speed to maintain a temperature you choose.
 
-[**Watch the 3.6-second demo →**](docs/thermal-motes.mp4) · [Screenshots ↓](#screenshots)
+[**Download the latest direct release →**](https://github.com/kargnas/modern-mac-fan-control/releases/latest) · [Watch the 3.6-second demo →](docs/thermal-motes.mp4) · [Screenshots ↓](#screenshots)
 
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111827?logo=apple)](https://www.apple.com/macos/)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](Package.swift)
 [![GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-2563eb)](LICENSE)
 
 <a href="docs/thermal-motes.mp4">
-  <img src="docs/hottarget-hero.png" width="800" alt="Animated green thermometer with paired thermal motes">
+  <img src="docs/hottarget-hero.png" width="800" alt="Hot Target menu-bar thermometer and thermal animation">
 </a>
 
 <p align="center"><a href="docs/thermal-motes.mp4">Play the MP4: 800×450 · H.264 · 30 fps</a></p>
 
-## Screenshots
+## Maintain a target temperature
 
-| Screen | What it does |
-|---|---|
-| <img src="docs/menu-bar-combined.png" width="254" alt="Thermometer and temperature in the macOS menu bar"> | Shows the animated thermometer and exact temperature together. |
-| <img src="docs/menu-bar-icon.png" width="350" alt="Thermometer-only menu-bar mode"> | Keeps the menu bar compact while color and mercury level carry the thermal state. |
-| <img src="docs/fan-status.png" width="400" alt="Left- and right-aligned fan RPM values"> | Reports both fan speeds with native left/right alignment. |
+Choose **Maintain Target Temperature** from the menu and select 40–85 °C in 5 °C steps. Hot Target reads the CPU temperature every second and adjusts each fan's existing SMC target to bring the latest 10-sample average toward your selection.
 
-The paired-wave animation sends a left mote followed by a right mote after 0.45 seconds, then repeats every 3.6 seconds. Color moves continuously from healthy green at 45 °C through yellow to danger red at 80 °C.
+The feedback loop changes fan speed gradually instead of jumping straight between fixed speeds:
 
-## Choose one fan controller
+- Above the target, it raises the SMC target by 10 RPM per degree of error, capped at 100 RPM per cycle.
+- Below the target, it lowers the SMC target by 20 RPM per degree, capped at 200 RPM per cycle.
+- Inside a ±0.5 °C deadband, it holds the current target to avoid fan hunting.
+- At an instantaneous 90 °C, it immediately requests the hardware maximum for every fan.
 
-**Noise Based** offers three presets:
+The signed privileged helper remains the source of truth and reapplies manual fan targets after sleep or an SMC reset. Quitting the app or losing the helper connection restores Apple automatic control.
+
+While target-temperature control is active, Hot Target writes `timestamp,target_celsius,actual_celsius` once per second to daily CSV files in `~/Library/Logs/hottarget/`. Files whose last sample is older than 72 hours are deleted automatically. Choose **Temperature Log…** to inspect the retained history in a native window.
+
+## Preset fan modes
+
+Presets are available as secondary controls under **Preset Fan Modes**. Only one target-temperature or preset controller can be active at a time.
 
 | Mode | Minimum | Behavior |
 |---|---:|---|
-| System Default | Apple automatic | Lets macOS control every fan. |
-| Quiet | 1,500 RPM | Holds the minimum until the hot threshold, then ramps to maximum at 90 °C. |
+| System Default | Apple automatic | Returns every fan to macOS control. |
+| Quiet | 1,500 RPM | Holds a quiet floor until the hot threshold, then ramps toward maximum at 90 °C. |
 | Ultra | Maximum | Runs every fan at 100%. |
 
-Quiet ignores 3 °C cooldown fluctuations and lowers RPM more slowly than it raises it, reducing audible fan hunting. Reaching 90 °C bypasses stabilization and requests maximum speed immediately.
+Quiet ignores 3 °C cooldown fluctuations and applies bounded RPM changes to reduce audible fan hunting.
 
-**Target Temperature** offers 40–85 °C in 5 °C steps. The helper samples the CPU every second and controls from the latest 10-sample average. It raises the existing SMC target by 10 RPM per degree of error, capped at 100 RPM per sample, and lowers it by 20 RPM per degree, capped at 200 RPM per sample. A ±0.5 °C deadband holds the current speed, while an instantaneous 90 °C reading always requests maximum speed.
+## Live temperature and fan status
 
-Only one controller can be active. The app starts in Apple automatic mode; after a selection, the helper remains the source of truth for both menu checkmarks and reapplies every manual target after sleep or another SMC reset.
+| Screen | What it does |
+|---|---|
+| <img src="docs/menu-bar-combined.png" width="254" alt="Thermometer and exact CPU temperature in the macOS menu bar"> | Shows the animated thermometer and exact CPU temperature together. |
+| <img src="docs/menu-bar-icon.png" width="350" alt="Thermometer-only menu-bar mode"> | Keeps the menu bar compact while color and mercury level carry the thermal state. |
+| <img src="docs/fan-status.png" width="400" alt="Live fan RPM values"> | Reports the current speed of every detected fan. |
 
-While Target Temperature is active, the app writes `timestamp,target_celsius,actual_celsius` every second to daily CSV files in `~/Library/Logs/hottarget/`. Files whose last sample is older than 72 hours are deleted automatically.
-
-Choose **Temperature Log…** from the main menu to read the retained CSV files in a native window. Fan status rows show only the RPM values.
+The paired-wave animation sends a left mote followed by a right mote after 0.45 seconds, then repeats every 3.6 seconds. Color moves continuously from healthy green at 45 °C through yellow to danger red at 80 °C.
 
 ## Stack at a glance
 
@@ -50,10 +57,21 @@ Choose **Temperature Log…** from the main menu to read the retained CSV files 
 |---|---|
 | Menu bar UI | AppKit + Core Animation |
 | Temperature and fan sensors | IOKit + AppleSMC |
-| Fan control | ServiceManagement + signed XPC helper |
+| Fan control | ServiceManagement + signed privileged XPC helper |
 | Build and tests | Swift 6 + Swift Package Manager |
 
-## Run locally
+Hot Target is distributed directly because exact AppleSMC temperature readings and privileged fan control are not available through public sandboxed macOS APIs.
+
+## Install and enable fan control
+
+Download the latest signed build from [GitHub Releases](https://github.com/kargnas/modern-mac-fan-control/releases/latest). Hot Target requires macOS 14 or later.
+
+1. Quit other fan-control applications.
+2. Choose **Maintain Target Temperature → Enable Fan Control…**.
+3. Approve **Hot Target.app** in **System Settings → General → Login Items & Extensions**.
+4. Return to **Maintain Target Temperature** and choose your target.
+
+## Build locally
 
 ```bash
 git clone https://github.com/kargnas/modern-mac-fan-control.git
@@ -61,23 +79,13 @@ cd modern-mac-fan-control
 ./script/build_and_run.sh --verify
 ```
 
-Requires macOS 14 or later and a Developer ID Application or Apple Development signing identity.
-
-When a registered helper already exists, the build script unregisters it before replacing the signed app bundle and registers the new helper afterward.
-
-To enable fan control:
-
-1. Quit other fan controllers.
-2. Choose **Fan Control → Enable Fan Control…**.
-3. Approve **Hot Target.app** in **System Settings → General → Login Items & Extensions**.
-
-The helper accepts only the controls listed above. Quitting the app or losing the helper connection restores Apple automatic control.
+A local build requires a Developer ID Application or Apple Development signing identity. When a registered helper already exists, the build script unregisters it before replacing the signed app bundle and registers the new helper afterward.
 
 ## Verify the build
 
 ```text
 $ swift test
-Executed 13 tests, with 0 failures
+Executed 14 tests, with 0 failures
 ```
 
 Licensed under [GPL-3.0-only](LICENSE). MIT notices for Stats, smctl, and MacFanControl remain in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
