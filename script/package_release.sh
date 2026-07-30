@@ -9,6 +9,8 @@ HELPER_ID="as.kargn.hottarget.helper"
 HELPER_PLIST_NAME="$HELPER_ID.plist"
 ICON_NAME="HotTarget"
 MIN_SYSTEM_VERSION="14.0"
+SPARKLE_PUBLIC_KEY="6skMx+nj9R6w4kS1Ct4GAi+z01EaSaZnEbnZ20QJcqo="
+SPARKLE_FEED_URL="https://github.com/kargnas/hottarget/releases/latest/download/appcast.xml"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${VERSION:-}"
@@ -31,6 +33,8 @@ swift build --package-path "$ROOT_DIR" -c release --arch arm64 --arch x86_64 --p
 BUILD_DIR="$(swift build --package-path "$ROOT_DIR" -c release --arch arm64 --arch x86_64 --show-bin-path)"
 BUILD_BINARY="$BUILD_DIR/$APP_NAME"
 BUILD_HELPER="$BUILD_DIR/$HELPER_NAME"
+BUILD_SPARKLE_FRAMEWORK="$BUILD_DIR/Sparkle.framework"
+[[ -d "$BUILD_SPARKLE_FRAMEWORK" ]] || fail "missing Sparkle framework: $BUILD_SPARKLE_FRAMEWORK"
 
 for binary in "$BUILD_BINARY" "$BUILD_HELPER"; do
   [[ -x "$binary" ]] || fail "missing built binary: $binary"
@@ -48,18 +52,24 @@ APP_BUNDLE="$STAGING_DIR/$APP_DISPLAY_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
+APP_FRAMEWORKS="$APP_CONTENTS/Frameworks"
 APP_LAUNCH_DAEMONS="$APP_CONTENTS/Library/LaunchDaemons"
 APP_BINARY="$APP_MACOS/$APP_NAME"
+SPARKLE_FRAMEWORK="$APP_FRAMEWORKS/Sparkle.framework"
 HELPER_BINARY="$APP_RESOURCES/$HELPER_NAME"
 HELPER_PLIST="$APP_LAUNCH_DAEMONS/$HELPER_PLIST_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 ARCHIVE_NAME="Hot-Target-$VERSION.zip"
 ARCHIVE="$STAGING_DIR/$ARCHIVE_NAME"
 
-mkdir -p "$APP_MACOS" "$APP_RESOURCES" "$APP_LAUNCH_DAEMONS"
+mkdir -p "$APP_MACOS" "$APP_RESOURCES" "$APP_FRAMEWORKS" "$APP_LAUNCH_DAEMONS"
 cp "$BUILD_BINARY" "$APP_BINARY"
 cp "$BUILD_HELPER" "$HELPER_BINARY"
+/usr/bin/ditto "$BUILD_SPARKLE_FRAMEWORK" "$SPARKLE_FRAMEWORK"
 chmod 755 "$APP_BINARY" "$HELPER_BINARY"
+if ! otool -l "$APP_BINARY" | awk '/LC_RPATH/{found=1} found && /path @executable_path\/..\/Frameworks/{matched=1} END{exit matched ? 0 : 1}'; then
+  install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_BINARY"
+fi
 
 ICONSET_DIR="$STAGING_DIR/$ICON_NAME.iconset"
 swift "$ROOT_DIR/script/make_icon.swift" "$ICONSET_DIR"
@@ -90,6 +100,16 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$MIN_SYSTEM_VERSION</string>
   <key>LSUIElement</key>
   <true/>
+  <key>SUFeedURL</key>
+  <string>$SPARKLE_FEED_URL</string>
+  <key>SUPublicEDKey</key>
+  <string>$SPARKLE_PUBLIC_KEY</string>
+  <key>SUScheduledCheckInterval</key>
+  <integer>86400</integer>
+  <key>SUEnableAutomaticChecks</key>
+  <true/>
+  <key>SUAutomaticallyUpdate</key>
+  <true/>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
 </dict>
@@ -119,6 +139,29 @@ cat >"$HELPER_PLIST" <<PLIST
 PLIST
 
 plutil -lint "$INFO_PLIST" "$HELPER_PLIST"
+sign_sparkle_framework() {
+  local framework="$1"
+  local sparkle="$framework/Versions/B"
+
+  codesign --force --options runtime --timestamp \
+    --sign "$SIGNING_IDENTITY" \
+    "$sparkle/Autoupdate"
+  codesign --force --options runtime --timestamp \
+    --sign "$SIGNING_IDENTITY" \
+    "$sparkle/Updater.app"
+  codesign --force --options runtime --timestamp \
+    --preserve-metadata=entitlements \
+    --sign "$SIGNING_IDENTITY" \
+    "$sparkle/XPCServices/Downloader.xpc"
+  codesign --force --options runtime --timestamp \
+    --sign "$SIGNING_IDENTITY" \
+    "$sparkle/XPCServices/Installer.xpc"
+  codesign --force --options runtime --timestamp \
+    --sign "$SIGNING_IDENTITY" \
+    "$framework"
+}
+
+sign_sparkle_framework "$SPARKLE_FRAMEWORK"
 codesign --force --options runtime --timestamp \
   --identifier "$HELPER_ID" \
   --sign "$SIGNING_IDENTITY" \

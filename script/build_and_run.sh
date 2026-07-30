@@ -10,6 +10,8 @@ HELPER_ID="as.kargn.hottarget.helper"
 HELPER_PLIST_NAME="$HELPER_ID.plist"
 ICON_NAME="HotTarget"
 MIN_SYSTEM_VERSION="14.0"
+SPARKLE_PUBLIC_KEY="6skMx+nj9R6w4kS1Ct4GAi+z01EaSaZnEbnZ20QJcqo="
+SPARKLE_FEED_URL="https://github.com/kargnas/hottarget/releases/latest/download/appcast.xml"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
@@ -20,6 +22,8 @@ swift build --package-path "$ROOT_DIR"
 BUILD_DIR="$(swift build --package-path "$ROOT_DIR" --show-bin-path)"
 BUILD_BINARY="$BUILD_DIR/$APP_NAME"
 BUILD_HELPER="$BUILD_DIR/$HELPER_NAME"
+BUILD_SPARKLE_FRAMEWORK="$BUILD_DIR/Sparkle.framework"
+[[ -d "$BUILD_SPARKLE_FRAMEWORK" ]] || { echo "missing Sparkle framework: $BUILD_SPARKLE_FRAMEWORK" >&2; exit 1; }
 
 SIGNING_IDENTITY="${SIGNING_IDENTITY:-}"
 if [[ -z "$SIGNING_IDENTITY" ]]; then
@@ -39,8 +43,10 @@ STAGING_APP_BUNDLE="$STAGING_DIR/$APP_DISPLAY_NAME.app"
 STAGING_APP_CONTENTS="$STAGING_APP_BUNDLE/Contents"
 STAGING_APP_MACOS="$STAGING_APP_CONTENTS/MacOS"
 STAGING_APP_RESOURCES="$STAGING_APP_CONTENTS/Resources"
+STAGING_APP_FRAMEWORKS="$STAGING_APP_CONTENTS/Frameworks"
 STAGING_APP_LAUNCH_DAEMONS="$STAGING_APP_CONTENTS/Library/LaunchDaemons"
 STAGING_APP_BINARY="$STAGING_APP_MACOS/$APP_NAME"
+STAGING_SPARKLE_FRAMEWORK="$STAGING_APP_FRAMEWORKS/Sparkle.framework"
 STAGING_HELPER_BINARY="$STAGING_APP_RESOURCES/$HELPER_NAME"
 STAGING_HELPER_PLIST="$STAGING_APP_LAUNCH_DAEMONS/$HELPER_PLIST_NAME"
 STAGING_INFO_PLIST="$STAGING_APP_CONTENTS/Info.plist"
@@ -64,10 +70,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$STAGING_APP_MACOS" "$STAGING_APP_RESOURCES" "$STAGING_APP_LAUNCH_DAEMONS"
+mkdir -p "$STAGING_APP_MACOS" "$STAGING_APP_RESOURCES" "$STAGING_APP_FRAMEWORKS" "$STAGING_APP_LAUNCH_DAEMONS"
 cp "$BUILD_BINARY" "$STAGING_APP_BINARY"
 cp "$BUILD_HELPER" "$STAGING_HELPER_BINARY"
+/usr/bin/ditto "$BUILD_SPARKLE_FRAMEWORK" "$STAGING_SPARKLE_FRAMEWORK"
 chmod +x "$STAGING_APP_BINARY" "$STAGING_HELPER_BINARY"
+if ! otool -l "$STAGING_APP_BINARY" | awk '/LC_RPATH/{found=1} found && /path @executable_path\/..\/Frameworks/{matched=1} END{exit matched ? 0 : 1}'; then
+  install_name_tool -add_rpath "@executable_path/../Frameworks" "$STAGING_APP_BINARY"
+fi
 
 # 아이콘은 저장소에 바이너리로 두지 않고 매 빌드마다 script/make_icon.swift 로 그린다.
 ICONSET_DIR="$STAGING_DIR/$ICON_NAME.iconset"
@@ -99,6 +109,16 @@ cat >"$STAGING_INFO_PLIST" <<PLIST
   <string>$MIN_SYSTEM_VERSION</string>
   <key>LSUIElement</key>
   <true/>
+  <key>SUFeedURL</key>
+  <string>$SPARKLE_FEED_URL</string>
+  <key>SUPublicEDKey</key>
+  <string>$SPARKLE_PUBLIC_KEY</string>
+  <key>SUScheduledCheckInterval</key>
+  <integer>86400</integer>
+  <key>SUEnableAutomaticChecks</key>
+  <false/>
+  <key>SUAutomaticallyUpdate</key>
+  <false/>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
 </dict>
@@ -127,6 +147,29 @@ cat >"$STAGING_HELPER_PLIST" <<PLIST
 </plist>
 PLIST
 
+sign_sparkle_framework() {
+  local framework="$1"
+  local sparkle="$framework/Versions/B"
+
+  codesign --force --options runtime --timestamp=none \
+    --sign "$SIGNING_IDENTITY" \
+    "$sparkle/Autoupdate"
+  codesign --force --options runtime --timestamp=none \
+    --sign "$SIGNING_IDENTITY" \
+    "$sparkle/Updater.app"
+  codesign --force --options runtime --timestamp=none \
+    --preserve-metadata=entitlements \
+    --sign "$SIGNING_IDENTITY" \
+    "$sparkle/XPCServices/Downloader.xpc"
+  codesign --force --options runtime --timestamp=none \
+    --sign "$SIGNING_IDENTITY" \
+    "$sparkle/XPCServices/Installer.xpc"
+  codesign --force --options runtime --timestamp=none \
+    --sign "$SIGNING_IDENTITY" \
+    "$framework"
+}
+
+sign_sparkle_framework "$STAGING_SPARKLE_FRAMEWORK"
 codesign --force --options runtime --timestamp=none \
   --identifier "$HELPER_ID" \
   --sign "$SIGNING_IDENTITY" \
@@ -135,7 +178,7 @@ codesign --force --options runtime --timestamp=none \
   --sign "$SIGNING_IDENTITY" \
   "$STAGING_APP_BUNDLE"
 codesign --verify --strict "$STAGING_HELPER_BINARY"
-codesign --verify --strict "$STAGING_APP_BUNDLE"
+codesign --verify --deep --strict "$STAGING_APP_BUNDLE"
 
 HELPER_WAS_REGISTERED=false
 if [[ -x "$APP_BINARY" ]]; then

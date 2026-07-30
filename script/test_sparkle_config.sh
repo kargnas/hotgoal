@@ -57,8 +57,8 @@ require_text "$WORKFLOW" 'secrets.SPARKLE_PRIVATE_KEY'
 require_text "$WORKFLOW" 'hdiutil create'
 require_text "$WORKFLOW" 'sign_update'
 require_text "$WORKFLOW" 'appcast.xml'
-require_text "$WORKFLOW" 'Hot-Target-$VERSION.dmg'
-require_text "$WORKFLOW" 'releases/download/$TAG/Hot-Target-$VERSION.dmg'
+require_text "$WORKFLOW" "Hot-Target-\$VERSION.dmg"
+require_text "$WORKFLOW" "releases/download/\$TAG/Hot-Target-\$VERSION.dmg"
 
 if grep -Fq -- 'codesign --deep' "$PACKAGER"; then
   fail "package_release.sh must not use codesign --deep for signing"
