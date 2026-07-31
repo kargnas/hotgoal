@@ -2,17 +2,15 @@
 
 Native macOS menu-bar utility that automatically adjusts fan speed to maintain a temperature you choose.
 
-[**Download the latest direct release →**](https://github.com/kargnas/hottarget/releases/latest) · [Watch the 3.6-second demo →](docs/thermal-motes.mp4) · [Screenshots ↓](#screenshots)
+[**Download the latest direct release →**](https://github.com/kargnas/hottarget/releases/latest)
 
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111827?logo=apple)](https://www.apple.com/macos/)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](Package.swift)
 [![GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-2563eb)](LICENSE)
 
-<a href="docs/thermal-motes.mp4">
-  <img src="docs/hottarget-hero.png" width="800" alt="Hot Target menu-bar thermometer and thermal animation">
-</a>
-
-<p align="center"><a href="docs/thermal-motes.mp4">Play the MP4: 800×450 · H.264 · 30 fps</a></p>
+<p align="center">
+  <img height="300" alt="hottarget" src="https://github.com/user-attachments/assets/c8bbd4ee-6527-4187-b5ca-e9f0ff0a29b1" />
+</p>
 
 ## Maintain a target temperature
 
