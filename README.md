@@ -8,13 +8,9 @@ Native macOS menu-bar utility that automatically adjusts fan speed to maintain a
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](Package.swift)
 [![GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-2563eb)](LICENSE)
 
-<table align="center">
-  <tr>
-    <td>
-      <video src="https://github.com/user-attachments/assets/7b2f8cd9-088c-4b1a-972e-8860a8f51ce8" width="600" controls></video>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img height="300" alt="hottarget" src="https://github.com/user-attachments/assets/c8bbd4ee-6527-4187-b5ca-e9f0ff0a29b1" />
+</p>
 
 ## Maintain a target temperature
 
