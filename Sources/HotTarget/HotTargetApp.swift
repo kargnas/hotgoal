@@ -52,6 +52,27 @@ enum HotTargetApp {
             return true
         }
 
+        if CommandLine.arguments.contains("--show-approval-chip") {
+            // Visual check for the approval chip. Goes through the production path, so it
+            // also exercises positioning against the real System Settings window. Add
+            // --confirm to preview the post-approval state without a real grant.
+            FanHelperServiceManager().openApprovalSettings()
+            if CommandLine.arguments.contains("--confirm") {
+                let timer = Timer(timeInterval: 3, repeats: false) { _ in
+                    MainActor.assumeIsolated {
+                        HelperApprovalOverlay.shared.showConfirmation(
+                            headline: "Fan control is on",
+                            body: "Now holding \(Int(FirstRunTarget.celsius)) °C. Pick another target under Maintain Target Temperature."
+                        )
+                    }
+                }
+                RunLoop.main.add(timer, forMode: .common)
+            }
+            NSApp.setActivationPolicy(.accessory)
+            NSApplication.shared.run()
+            return true
+        }
+
         if CommandLine.arguments.contains("--helper-status") {
             print(helperStatusText())
             return true

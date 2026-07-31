@@ -1,0 +1,64 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:thermal-icon}",
+      "name": "Debug hottarget",
+      "target": "hottarget",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug hottarget"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:thermal-icon}",
+      "name": "Release hottarget",
+      "target": "hottarget",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release hottarget"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:thermal-icon}",
+      "name": "Debug hottarget-helper",
+      "target": "hottarget-helper",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug hottarget-helper"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:thermal-icon}",
+      "name": "Release hottarget-helper",
+      "target": "hottarget-helper",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release hottarget-helper"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:thermal-icon}",
+      "name": "Debug hottarget-mas",
+      "target": "hottarget-mas",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug hottarget-mas"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:thermal-icon}",
+      "name": "Release hottarget-mas",
+      "target": "hottarget-mas",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release hottarget-mas"
+    }
+  ]
+}

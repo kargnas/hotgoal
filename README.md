@@ -69,8 +69,8 @@ Download the latest signed DMG from [GitHub Releases](https://github.com/kargnas
 1. Open the DMG and drag **Hot Target.app** into **Applications**.
 2. Quit other fan-control applications.
 3. Choose **Maintain Target Temperature → Enable Fan Control…**.
-4. Approve **Hot Target.app** in **System Settings → General → Login Items & Extensions**.
-5. Return to **Maintain Target Temperature** and choose your target.
+4. Approve **Hot Target.app** in **System Settings → General → Login Items & Extensions**. Hot Target opens that pane for you and floats a chip under the window showing which switch to turn on; the chip disappears on its own once the approval lands.
+5. Hot Target starts holding 60 °C as soon as the approval lands and confirms it in the same chip. Pick a different target under **Maintain Target Temperature** at any time.
 
 ## Automatic updates
 
@@ -105,7 +105,7 @@ A local build requires a Developer ID Application or Apple Development signing i
 
 ```text
 $ swift test
-Executed 14 tests, with 0 failures
+Executed 17 tests, with 0 failures
 ```
 
 Licensed under [GPL-3.0-only](LICENSE). MIT notices for Stats, smctl, and MacFanControl remain in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

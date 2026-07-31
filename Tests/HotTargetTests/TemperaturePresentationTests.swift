@@ -2,6 +2,97 @@ import XCTest
 @testable import HotTargetCore
 
 final class TemperaturePresentationTests: XCTestCase {
+    func testFirstRunTargetAppliesOnceOnTheApprovalEdge() {
+        // A launch that already has an approved helper is not a fresh approval.
+        XCTAssertFalse(FirstRunTarget.approvalJustLanded(previous: nil, isEnabled: true))
+        XCTAssertTrue(FirstRunTarget.approvalJustLanded(previous: false, isEnabled: true))
+        // Every poll after the edge must be quiet, or the user's own choice gets overwritten.
+        XCTAssertFalse(FirstRunTarget.approvalJustLanded(previous: true, isEnabled: true))
+        XCTAssertFalse(FirstRunTarget.approvalJustLanded(previous: true, isEnabled: false))
+
+        // Fans are unknown for the first status round-trip after approval: wait, do not drop it.
+        XCTAssertFalse(FirstRunTarget.shouldApply(
+            pending: true, fanCount: 0, existingControl: nil, commandInFlight: false
+        ))
+        XCTAssertTrue(FirstRunTarget.shouldApply(
+            pending: true, fanCount: 2, existingControl: nil, commandInFlight: false
+        ))
+        // Never stomp a control the user already picked, and never race a command in flight.
+        XCTAssertFalse(FirstRunTarget.shouldApply(
+            pending: true, fanCount: 2, existingControl: .noise(.quiet, hotThreshold: 80), commandInFlight: false
+        ))
+        XCTAssertFalse(FirstRunTarget.shouldApply(
+            pending: true, fanCount: 2, existingControl: nil, commandInFlight: true
+        ))
+        XCTAssertFalse(FirstRunTarget.shouldApply(
+            pending: false, fanCount: 2, existingControl: nil, commandInFlight: false
+        ))
+
+        // The default target has to be a value the menu can actually show as selected.
+        XCTAssertTrue(FanControl.targetTemperatureChoices.contains(FirstRunTarget.celsius))
+    }
+
+    func testApprovalOverlayChipFlipsWindowBoundsAndStaysOnScreen() {
+        // CGWindow reports top-left-origin bounds; Cocoa wants bottom-left.
+        let settings = ApprovalOverlayPlacement.cocoaRect(
+            fromWindowBounds: CGRect(x: 100, y: 80, width: 700, height: 600),
+            primaryScreenHeight: 1000
+        )
+        XCTAssertEqual(settings, CGRect(x: 100, y: 320, width: 700, height: 600))
+
+        let chipSize = CGSize(width: 268, height: 116)
+        let visible = CGRect(x: 0, y: 25, width: 1440, height: 942)
+        let chip = ApprovalOverlayPlacement.chipFrame(
+            settingsFrame: settings,
+            chipSize: chipSize,
+            visibleFrame: visible
+        )
+        // Centered on the content pane, not the whole window, and clear of the sidebar.
+        XCTAssertEqual(chip.midX, settings.minX + ApprovalOverlayPlacement.sidebarWidth + (700 - 215) / 2)
+        XCTAssertGreaterThan(chip.minX, settings.minX + ApprovalOverlayPlacement.sidebarWidth)
+        // Below the window, never over the list it points at.
+        XCTAssertEqual(chip.maxY, settings.minY - ApprovalOverlayPlacement.windowGap)
+
+        // No room below: fall back inside the window rather than off-screen.
+        let lowWindow = CGRect(x: 200, y: visible.minY + 4, width: 700, height: 600)
+        let fallback = ApprovalOverlayPlacement.chipFrame(
+            settingsFrame: lowWindow,
+            chipSize: chipSize,
+            visibleFrame: visible
+        )
+        XCTAssertEqual(fallback.minY, lowWindow.minY + ApprovalOverlayPlacement.bottomInset)
+
+        // A Settings window hanging off the screen edge must not drag the chip off with it.
+        let clamped = ApprovalOverlayPlacement.chipFrame(
+            settingsFrame: CGRect(x: 1300, y: -400, width: 700, height: 600),
+            chipSize: chipSize,
+            visibleFrame: visible
+        )
+        XCTAssertEqual(clamped.minY, visible.minY + ApprovalOverlayPlacement.screenMargin)
+        XCTAssertLessThanOrEqual(clamped.maxX, visible.maxX - ApprovalOverlayPlacement.screenMargin)
+    }
+
+    func testApprovalOverlayTrackerDismissesOnGrantAndOnLostSettingsWindow() {
+        let frameA = CGRect(x: 0, y: 0, width: 700, height: 600)
+        let frameB = frameA.offsetBy(dx: 40, dy: 0)
+
+        var granted = ApprovalOverlayTracker(now: 0)
+        XCTAssertEqual(granted.step(now: 0, isSatisfied: true, settingsFrame: frameA), .dismiss)
+
+        // Settings is slow to launch: a window that has never appeared gets the longer grace.
+        var slowLaunch = ApprovalOverlayTracker(now: 0)
+        XCTAssertEqual(slowLaunch.step(now: 3.9, isSatisfied: false, settingsFrame: nil), .hold)
+        XCTAssertEqual(slowLaunch.step(now: 4, isSatisfied: false, settingsFrame: nil), .dismiss)
+
+        var tracker = ApprovalOverlayTracker(now: 0)
+        XCTAssertEqual(tracker.step(now: 1, isSatisfied: false, settingsFrame: frameA), .reposition(frameA))
+        // An unchanged frame must not snap a chip the user dragged aside.
+        XCTAssertEqual(tracker.step(now: 1.5, isSatisfied: false, settingsFrame: frameA), .hold)
+        XCTAssertEqual(tracker.step(now: 2, isSatisfied: false, settingsFrame: frameB), .reposition(frameB))
+        XCTAssertEqual(tracker.step(now: 3, isSatisfied: false, settingsFrame: nil), .hold)
+        XCTAssertEqual(tracker.step(now: 4, isSatisfied: false, settingsFrame: nil), .dismiss)
+    }
+
     func testM4DormantPerformanceCoreTemperatureIsRejected() {
         XCTAssertFalse(SMCReader.isUsableCPUTemperature(40, key: "Tp01", rejectsDormantPcoreReadings: true))
         XCTAssertTrue(SMCReader.isUsableCPUTemperature(40, key: "Te05", rejectsDormantPcoreReadings: true))

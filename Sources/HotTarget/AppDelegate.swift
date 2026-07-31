@@ -43,6 +43,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var fanStatusRequestInFlight = false
     private var fanCommandInFlight = false
     private var fanConnectionGeneration = 0
+    private var lastHelperEnabled: Bool?
+    private var pendingInitialTarget = false
 
     override init() {
         let defaults = UserDefaults.standard
@@ -87,6 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         refreshTimer?.invalidate()
+        HelperApprovalOverlay.shared.close()
         helperClient.disconnect()
     }
 
@@ -242,12 +245,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         hasControllerConflict = controllerConflict
 
+        // Detected here rather than in the approval-settings path, so it also fires when the
+        // user approves the helper on their own schedule, long after the pane was opened.
+        let helperEnabled = helperManager.state == .enabled
+        if FirstRunTarget.approvalJustLanded(previous: lastHelperEnabled, isEnabled: helperEnabled) {
+            pendingInitialTarget = true
+        }
+        lastHelperEnabled = helperEnabled
+
         if hasControllerConflict {
             updateFanItems()
             return
         }
 
-        if helperManager.state == .enabled {
+        if helperEnabled {
             refreshFanControlStatus()
             return
         }
@@ -298,6 +309,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 fans = []
                 reportedFanControl = nil
                 fanStatusError = error.localizedDescription
+            }
+            if FirstRunTarget.shouldApply(
+                pending: pendingInitialTarget,
+                fanCount: fans.count,
+                existingControl: reportedFanControl,
+                commandInFlight: fanCommandInFlight
+            ) {
+                pendingInitialTarget = false
+                let target = Int(FirstRunTarget.celsius)
+                applyFanControl(
+                    .targetTemperature(FirstRunTarget.celsius),
+                    confirmation: (
+                        headline: "Fan control is on",
+                        body: "Now holding \(target) °C. Pick another target under Maintain Target Temperature."
+                    )
+                )
             }
             updateFanItems()
         }
@@ -486,7 +513,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         applyFanControl(.targetTemperature(Double(sender.tag)))
     }
 
-    private func applyFanControl(_ control: FanControl) {
+    /// - Parameter confirmation: shown in the approval chip on success only. Used for the
+    ///   automatic first target, where the user has no other signal that the approval worked.
+    private func applyFanControl(
+        _ control: FanControl,
+        confirmation: (headline: String, body: String)? = nil
+    ) {
         guard !hasControllerConflict,
               helperManager.state == .enabled,
               !fans.isEmpty,
@@ -495,7 +527,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let generation = fanConnectionGeneration
         updateFanItems()
         helperClient.setControl(control) { [weak self] result in
-            self?.finishFanCommand(result, generation: generation)
+            guard let self else { return }
+            if let confirmation, case .success = result, generation == fanConnectionGeneration {
+                HelperApprovalOverlay.shared.showConfirmation(
+                    headline: confirmation.headline,
+                    body: confirmation.body
+                )
+            }
+            finishFanCommand(result, generation: generation)
         }
     }
 
