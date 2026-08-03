@@ -35,10 +35,10 @@ Presets are available as secondary controls under **Preset Fan Modes**. Only one
 | Mode | Minimum | Behavior |
 |---|---:|---|
 | System Default | Apple automatic | Returns every fan to macOS control. |
-| Quiet | 1,500 RPM | Holds a quiet floor until the hot threshold, then ramps toward maximum at 90 °C. |
+| Quiet | Hardware minimum | Immediately holds every fan at its hardware minimum. |
 | Ultra | Maximum | Runs every fan at 100%. |
 
-Quiet ignores 3 °C cooldown fluctuations and applies bounded RPM changes to reduce audible fan hunting.
+The 90 °C safety override still sends every fan to its hardware maximum, including in Quiet mode.
 
 ## Live temperature and fan status
 

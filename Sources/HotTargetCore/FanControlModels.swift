@@ -54,10 +54,8 @@ public enum NoiseMode: String, CaseIterable, Codable, Sendable {
     }
 
     public func targetRPM(
-        celsius: Double,
         minimum: Int,
-        maximum: Int,
-        hotThreshold: Double
+        maximum: Int
     ) -> Int? {
         switch self {
         case .systemDefault:
@@ -65,13 +63,8 @@ public enum NoiseMode: String, CaseIterable, Codable, Sendable {
         case .ultra:
             return maximum
         case .quiet:
-            break
+            return minimum
         }
-
-        guard celsius.isFinite else { return maximum }
-        let floor = min(max(1_500, minimum), maximum)
-        let percent = celsius >= 90 ? 1 : max(0, (celsius - hotThreshold) / (90 - hotThreshold))
-        return min(max(Int((Double(floor) + Double(maximum - floor) * percent).rounded()), floor), maximum)
     }
 }
 
@@ -90,15 +83,15 @@ public enum FanControlMenuSection: Equatable, Sendable {
 }
 
 public enum FanControl: Codable, Equatable, Sendable {
-    case noise(NoiseMode, hotThreshold: Double)
+    case noise(NoiseMode)
     case targetTemperature(Double)
 
     public static let targetTemperatureChoices = stride(from: 40.0, through: 85.0, by: 5.0).map { $0 }
 
     public var isValid: Bool {
         switch self {
-        case let .noise(_, hotThreshold):
-            TemperatureThresholds.hotChoices.contains(hotThreshold)
+        case .noise:
+            true
         case let .targetTemperature(target):
             Self.targetTemperatureChoices.contains(target)
         }
@@ -106,12 +99,12 @@ public enum FanControl: Codable, Equatable, Sendable {
 
     // Manual SMC targets can reset across sleep, so every non-default control is reconciled.
     public var requiresContinuousControl: Bool {
-        if case .noise(.systemDefault, _) = self { return false }
+        if case .noise(.systemDefault) = self { return false }
         return true
     }
 
     public var noiseMode: NoiseMode? {
-        guard case let .noise(mode, _) = self else { return nil }
+        guard case let .noise(mode) = self else { return nil }
         return mode
     }
 
@@ -183,12 +176,10 @@ public struct TemperatureAverage: Sendable {
 }
 
 public struct FanTargetStabilizer: Sendable {
-    // Cooling is faster than rising but remains bounded to prevent audible on/off cycling.
-    public static let hysteresisCelsius = 3.0
+    // Falling is faster than rising but remains bounded to prevent abrupt acoustic changes.
     public static let riseRPMPerSecond = 100.0
     public static let fallRPMPerSecond = 200.0
 
-    private var previousTemperature: Double?
     private var previousTargets: [Int]?
     private var previousUpdateTime: TimeInterval?
 
@@ -199,20 +190,6 @@ public struct FanTargetStabilizer: Sendable {
         at time: TimeInterval
     ) -> [Int] {
         limitTargets(fans.map(\.maximumRPM), at: time, forceImmediate: true)
-    }
-
-    public mutating func effectiveTemperature(for temperature: Double) -> Double {
-        guard temperature.isFinite else { return temperature }
-        let effectiveTemperature: Double
-        if let previousTemperature,
-           temperature < previousTemperature,
-           temperature >= previousTemperature - Self.hysteresisCelsius {
-            effectiveTemperature = previousTemperature
-        } else {
-            effectiveTemperature = temperature
-        }
-        previousTemperature = effectiveTemperature
-        return effectiveTemperature
     }
 
     public mutating func limitTargets(

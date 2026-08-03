@@ -492,21 +492,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func selectHotThreshold(_ sender: NSMenuItem) {
         guard !fanCommandInFlight else { return }
-        let modeToRefresh = reportedFanControl?.noiseMode
         thresholds = TemperatureThresholds(warm: thresholds.warm, hot: Double(sender.tag))
         UserDefaults.standard.set(thresholds.hot, forKey: DefaultsKey.hotThreshold)
         updateChecks()
         updateStatusItem()
-        if let modeToRefresh, modeToRefresh == .quiet {
-            applyFanControl(.noise(modeToRefresh, hotThreshold: thresholds.hot))
-        }
     }
 
     @objc private func selectFanMode(_ sender: NSMenuItem) {
         guard !hasControllerConflict else { return }
         guard let rawMode = sender.representedObject as? String,
               let mode = NoiseMode(rawValue: rawMode) else { return }
-        applyFanControl(.noise(mode, hotThreshold: thresholds.hot))
+        applyFanControl(.noise(mode))
     }
 
     @objc private func selectTargetTemperature(_ sender: NSMenuItem) {

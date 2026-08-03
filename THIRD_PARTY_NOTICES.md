@@ -27,7 +27,7 @@ SOFTWARE.
 
 ## smctl
 
-Fan-temperature hysteresis and asymmetric RPM slew limiting are adapted from
+Asymmetric RPM slew limiting is adapted from
 [leaperone/smctl](https://github.com/leaperone/smctl).
 
 MIT License

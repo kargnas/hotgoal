@@ -19,7 +19,7 @@ final class TemperaturePresentationTests: XCTestCase {
         ))
         // Never stomp a control the user already picked, and never race a command in flight.
         XCTAssertFalse(FirstRunTarget.shouldApply(
-            pending: true, fanCount: 2, existingControl: .noise(.quiet, hotThreshold: 80), commandInFlight: false
+            pending: true, fanCount: 2, existingControl: .noise(.quiet), commandInFlight: false
         ))
         XCTAssertFalse(FirstRunTarget.shouldApply(
             pending: true, fanCount: 2, existingControl: nil, commandInFlight: true
@@ -142,9 +142,9 @@ final class TemperaturePresentationTests: XCTestCase {
         XCTAssertEqual(NoiseMode.allCases, [.systemDefault, .quiet, .ultra])
         XCTAssertEqual(NoiseMode.systemDefault.title, "System Default")
         XCTAssertEqual(FanControl.targetTemperatureChoices, [40, 45, 50, 55, 60, 65, 70, 75, 80, 85])
-        XCTAssertFalse(FanControl.noise(.systemDefault, hotThreshold: 80).requiresContinuousControl)
-        XCTAssertTrue(FanControl.noise(.quiet, hotThreshold: 80).requiresContinuousControl)
-        XCTAssertTrue(FanControl.noise(.ultra, hotThreshold: 80).requiresContinuousControl)
+        XCTAssertFalse(FanControl.noise(.systemDefault).requiresContinuousControl)
+        XCTAssertTrue(FanControl.noise(.quiet).requiresContinuousControl)
+        XCTAssertTrue(FanControl.noise(.ultra).requiresContinuousControl)
         XCTAssertTrue(FanControl.targetTemperature(70).requiresContinuousControl)
     }
 
@@ -168,17 +168,16 @@ final class TemperaturePresentationTests: XCTestCase {
         )
     }
 
-    func testNoiseModesStayInsideHardwareRange() {
-        let cases: [(NoiseMode, Double, Int, Int, Int?)] = [
-            (.quiet, 20, 1_350, 6_000, 1_500),
-            (.quiet, 20, 1_500, 6_000, 1_500),
-            (.quiet, 20, 5_500, 6_000, 5_500),
-            (.quiet, 85, 1_500, 6_000, 3_750),
-            (.quiet, 95, 1_500, 6_000, 6_000),
+    func testNoiseModesUseHardwareExtremes() {
+        let cases: [(NoiseMode, Int, Int, Int?)] = [
+            (.systemDefault, 1_350, 6_000, nil),
+            (.quiet, 1_350, 6_000, 1_350),
+            (.quiet, 5_500, 6_000, 5_500),
+            (.ultra, 1_500, 6_000, 6_000),
         ]
-        for (mode, celsius, minimum, maximum, expected) in cases {
+        for (mode, minimum, maximum, expected) in cases {
             XCTAssertEqual(
-                mode.targetRPM(celsius: celsius, minimum: minimum, maximum: maximum, hotThreshold: 80),
+                mode.targetRPM(minimum: minimum, maximum: maximum),
                 expected
             )
         }
@@ -207,11 +206,6 @@ final class TemperaturePresentationTests: XCTestCase {
 
     func testFanTargetStabilizerHoldsCoolingAndLimitsRpmChanges() {
         var stabilizer = FanTargetStabilizer()
-
-        XCTAssertEqual(stabilizer.effectiveTemperature(for: 85), 85)
-        XCTAssertEqual(stabilizer.effectiveTemperature(for: 83), 85)
-        XCTAssertEqual(stabilizer.effectiveTemperature(for: 82.5), 85)
-        XCTAssertEqual(stabilizer.effectiveTemperature(for: 81.9), 81.9)
 
         XCTAssertEqual(stabilizer.limitTargets([1_500, 1_500], at: 0), [1_500, 1_500])
         XCTAssertEqual(stabilizer.limitTargets([4_000, 4_000], at: 2), [1_700, 1_700])
@@ -258,13 +252,13 @@ final class TemperaturePresentationTests: XCTestCase {
         XCTAssertFalse(invalidFan.isValid)
         XCTAssertEqual(
             try FanControlCodec.decodeStatus(
-                FanControlCodec.encode(FanControlStatus(control: .noise(.ultra, hotThreshold: 80), fans: [validFan]))
+                FanControlCodec.encode(FanControlStatus(control: .noise(.ultra), fans: [validFan]))
             ),
-            FanControlStatus(control: .noise(.ultra, hotThreshold: 80), fans: [validFan])
+            FanControlStatus(control: .noise(.ultra), fans: [validFan])
         )
         XCTAssertThrowsError(
             try FanControlCodec.decodeStatus(
-                FanControlCodec.encode(FanControlStatus(control: .noise(.ultra, hotThreshold: 80), fans: [invalidFan]))
+                FanControlCodec.encode(FanControlStatus(control: .noise(.ultra), fans: [invalidFan]))
             )
         )
         XCTAssertEqual(
