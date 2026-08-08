@@ -22,18 +22,16 @@ final class FanHelperClient {
     func getStatus(completion: @escaping (Result<FanControlStatus, Error>) -> Void) {
         do {
             let proxy = try remoteProxy(errorHandler: completion)
-            proxy.getStatus { data, message in
-                DispatchQueue.main.async {
-                    do {
-                        guard let data, message == nil else {
-                            throw ClientError.helper(message ?? "Fan status unavailable")
-                        }
-                        completion(.success(try FanControlCodec.decodeStatus(data)))
-                    } catch {
-                        completion(.failure(error))
+            proxy.getStatus(reply: MainActorCallback.make { data, message in
+                do {
+                    guard let data, message == nil else {
+                        throw ClientError.helper(message ?? "Fan status unavailable")
                     }
+                    completion(.success(try FanControlCodec.decodeStatus(data)))
+                } catch {
+                    completion(.failure(error))
                 }
-            }
+            })
         } catch {
             completion(.failure(error))
         }
@@ -63,15 +61,13 @@ final class FanHelperClient {
     ) {
         do {
             let proxy = try remoteProxy(errorHandler: completion)
-            request(proxy) { success, message in
-                DispatchQueue.main.async {
-                    if success {
-                        completion(.success(()))
-                    } else {
-                        completion(.failure(ClientError.helper(message ?? "Fan command failed")))
-                    }
+            request(proxy, MainActorCallback.make { success, message in
+                if success {
+                    completion(.success(()))
+                } else {
+                    completion(.failure(ClientError.helper(message ?? "Fan command failed")))
                 }
-            }
+            })
         } catch {
             completion(.failure(error))
         }
@@ -81,11 +77,9 @@ final class FanHelperClient {
         errorHandler: @escaping (Result<T, Error>) -> Void
     ) throws -> FanHelperProtocol {
         let connection = try connectionForRequest()
-        guard let proxy = connection.remoteObjectProxyWithErrorHandler({ error in
-            DispatchQueue.main.async {
-                errorHandler(.failure(error))
-            }
-        }) as? FanHelperProtocol else {
+        guard let proxy = connection.remoteObjectProxyWithErrorHandler(
+            MainActorCallback.make { error in errorHandler(.failure(error)) }
+        ) as? FanHelperProtocol else {
             throw ClientError.proxyUnavailable
         }
         return proxy
@@ -105,17 +99,13 @@ final class FanHelperClient {
         )
         connection.remoteObjectInterface = NSXPCInterface(with: FanHelperProtocol.self)
         connection.setCodeSigningRequirement(requirement)
-        connection.interruptionHandler = { [weak self, weak connection] in
+        connection.interruptionHandler = MainActorCallback.make { [weak self, weak connection] in
             guard let connection else { return }
-            DispatchQueue.main.async {
-                self?.handleConnectionLoss(connection)
-            }
+            self?.handleConnectionLoss(connection)
         }
-        connection.invalidationHandler = { [weak self, weak connection] in
+        connection.invalidationHandler = MainActorCallback.make { [weak self, weak connection] in
             guard let connection else { return }
-            DispatchQueue.main.async {
-                self?.handleConnectionLoss(connection)
-            }
+            self?.handleConnectionLoss(connection)
         }
         self.connection = connection
         connection.activate()
