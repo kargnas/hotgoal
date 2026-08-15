@@ -24,7 +24,7 @@ The feedback loop changes fan speed gradually instead of jumping straight betwee
 - Inside a ±0.5 °C deadband, it holds the current target to avoid fan hunting.
 - At 90 °C on three consecutive one-second samples, it immediately requests the hardware maximum for every fan. Single-sample sensor glitches do not trigger the override.
 
-The signed privileged helper remains the source of truth and reapplies manual fan targets after sleep or an SMC reset. Quitting the app or losing the helper connection restores Apple automatic control.
+The signed privileged helper remains the source of truth and reapplies manual fan targets after sleep or an SMC reset. Quitting the app or losing the helper connection restores Apple automatic control. Hot Target remembers your last selection and reapplies it automatically on the next launch; after choosing **System Default**, launches leave macOS in control.
 
 While target-temperature control is active, Hot Target writes `timestamp,target_celsius,actual_celsius` once per second to daily CSV files in `~/Library/Logs/hottarget/`. Files whose last sample is older than 72 hours are deleted automatically. Choose **Temperature Log…** to inspect the retained history in a native window.
 

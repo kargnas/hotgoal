@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         static let displayMode = "displayMode"
         static let warmThreshold = "warmThreshold"
         static let hotThreshold = "hotThreshold"
+        static let savedFanControl = "savedFanControl"
     }
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -45,6 +46,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var fanConnectionGeneration = 0
     private var lastHelperEnabled: Bool?
     private var pendingInitialTarget = false
+    private var savedControl: FanControl?
+    private var savedControlRestoreAttempted = false
 
     override init() {
         let defaults = UserDefaults.standard
@@ -59,6 +62,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             warm: defaults.double(forKey: DefaultsKey.warmThreshold),
             hot: defaults.double(forKey: DefaultsKey.hotThreshold)
         )
+        savedControl = defaults.data(forKey: DefaultsKey.savedFanControl)
+            .flatMap { try? FanControlCodec.decodeControl($0) }
         reader = try? SMCReader()
         super.init()
     }
@@ -302,6 +307,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 fans = status.fans
                 reportedFanControl = status.control
                 fanStatusError = nil
+                // A live control proves the last restore landed; the next drop gets a fresh attempt.
+                if status.control != nil { savedControlRestoreAttempted = false }
                 if let target = status.control?.targetTemperature, let temperature {
                     temperatureLog.record(targetCelsius: target, actualCelsius: temperature)
                 }
@@ -309,6 +316,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 fans = []
                 reportedFanControl = nil
                 fanStatusError = error.localizedDescription
+            }
+            if let restored = SavedControlRestore.controlToApply(
+                saved: savedControl,
+                reported: reportedFanControl,
+                fanCount: fans.count,
+                commandInFlight: fanCommandInFlight,
+                alreadyAttempted: savedControlRestoreAttempted
+            ) {
+                savedControlRestoreAttempted = true
+                // The saved choice supersedes the first-run 60 °C default.
+                pendingInitialTarget = false
+                applyFanControl(restored)
             }
             if FirstRunTarget.shouldApply(
                 pending: pendingInitialTarget,
@@ -361,11 +380,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let helperEnabled = helperManager.state == .enabled
         let controlsEnabled = helperEnabled && !fans.isEmpty && !hasControllerConflict && !fanCommandInFlight
         hotItems.forEach { $0.isEnabled = !fanCommandInFlight }
-        noiseControlItem.state = reportedFanControl?.noiseMode == nil ? .off : .on
+        // A nil control is Apple automatic — the same state System Default names — so show it
+        // as checked instead of a menu where nothing appears selected. A controller conflict or
+        // helper error means the true state is unknown; claim nothing then.
+        let effectiveAutomatic = reportedFanControl == nil && !hasControllerConflict && fanStatusError == nil
+        noiseControlItem.state = reportedFanControl?.noiseMode != nil || effectiveAutomatic ? .on : .off
         targetTemperatureControlItem.state = reportedFanControl?.targetTemperature == nil ? .off : .on
         for (mode, item) in noiseModeItems {
             item.isEnabled = controlsEnabled
-            item.state = reportedFanControl?.noiseMode == mode ? .on : .off
+            item.state = reportedFanControl?.noiseMode == mode
+                || (mode == .systemDefault && effectiveAutomatic) ? .on : .off
         }
         for item in targetTemperatureItems {
             item.isEnabled = controlsEnabled
@@ -521,6 +545,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateFanItems()
         helperClient.setControl(control) { [weak self] result in
             guard let self else { return }
+            if case .success = result {
+                // Persisted only on success so the saved value never claims a control the
+                // helper refused. System Default is saved too: it must supersede an older
+                // saved target, or the next relaunch would resurrect it.
+                savedControl = control
+                UserDefaults.standard.set(
+                    try? FanControlCodec.encode(control),
+                    forKey: DefaultsKey.savedFanControl
+                )
+            }
             if let confirmation, case .success = result, generation == fanConnectionGeneration {
                 HelperApprovalOverlay.shared.showConfirmation(
                     headline: confirmation.headline,
