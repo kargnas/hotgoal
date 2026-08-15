@@ -168,21 +168,6 @@ final class TemperaturePresentationTests: XCTestCase {
         )
     }
 
-    func testNoiseModesUseHardwareExtremes() {
-        let cases: [(NoiseMode, Int, Int, Int?)] = [
-            (.systemDefault, 1_350, 6_000, nil),
-            (.quiet, 1_350, 6_000, 1_350),
-            (.quiet, 5_500, 6_000, 5_500),
-            (.ultra, 1_500, 6_000, 6_000),
-        ]
-        for (mode, minimum, maximum, expected) in cases {
-            XCTAssertEqual(
-                mode.targetRPM(minimum: minimum, maximum: maximum),
-                expected
-            )
-        }
-    }
-
     func testTargetTemperatureControllerConvergesAndKeepsSafetyMaximum() {
         func snapshot(target: Int) -> FanSnapshot {
             FanSnapshot(index: 0, currentRPM: target, minimumRPM: 1_500, maximumRPM: 6_000, targetRPM: target, mode: 1)

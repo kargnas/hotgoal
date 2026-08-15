@@ -76,42 +76,34 @@ private final class FanService: @unchecked Sendable {
         switch control {
         case .noise(.systemDefault):
             try reader.restoreAutomatic()
-            return
         case .noise(.ultra):
             try reader.setFanPercentage(100)
-            return
-        case .noise(.quiet), .targetTemperature:
-            break
-        }
-
-        guard let temperature = reader.cpuAverageTemperature(), temperature.isFinite else {
-            throw SMCReader.ReaderError.temperatureUnavailable
-        }
-        let now = ProcessInfo.processInfo.systemUptime
-        if criticalGate.register(temperature, at: now) {
+        case .noise(.quiet):
+            // Quiet is an unconditional promise of silence: it never reads the temperature,
+            // so neither the 90 °C override nor a sensor failure can spin the fans up.
             let fans = try reader.fanSnapshots()
             guard !fans.isEmpty else { throw SMCReader.ReaderError.invalidFan }
-            try reader.setFanTargets(stabilizer.forceMaximumTargets(for: fans, at: now))
-            return
-        }
-        let fans = try reader.fanSnapshots()
-        guard !fans.isEmpty else { throw SMCReader.ReaderError.invalidFan }
-        let requestedTargets: [Int]
-        switch control {
-        case let .noise(mode):
-            requestedTargets = fans.compactMap {
-                mode.targetRPM(minimum: $0.minimumRPM, maximum: $0.maximumRPM)
-            }
+            try reader.setFanTargets(fans.map(\.minimumRPM))
         case let .targetTemperature(target):
+            guard let temperature = reader.cpuAverageTemperature(), temperature.isFinite else {
+                throw SMCReader.ReaderError.temperatureUnavailable
+            }
+            let now = ProcessInfo.processInfo.systemUptime
+            let fans = try reader.fanSnapshots()
+            guard !fans.isEmpty else { throw SMCReader.ReaderError.invalidFan }
+            if criticalGate.register(temperature, at: now) {
+                // At the 90 °C safety point, maximum fan speed must never wait for slew limiting.
+                try reader.setFanTargets(stabilizer.forceMaximumTargets(for: fans, at: now))
+                return
+            }
             guard let controlTemperature = temperatureAverage.append(temperature, at: now) else { return }
-            requestedTargets = TargetTemperatureController.targets(celsius: controlTemperature, target: target, fans: fans)
+            let requestedTargets = TargetTemperatureController.targets(
+                celsius: controlTemperature,
+                target: target,
+                fans: fans
+            )
+            try reader.setFanTargets(stabilizer.limitTargets(requestedTargets, at: now))
         }
-        // At the 90 °C safety point, maximum fan speed must never wait for slew limiting.
-        let targets = stabilizer.limitTargets(
-            requestedTargets,
-            at: now
-        )
-        try reader.setFanTargets(targets)
     }
 
     private func startControlTimerLocked() {

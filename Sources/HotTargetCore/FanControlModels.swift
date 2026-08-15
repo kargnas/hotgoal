@@ -52,20 +52,6 @@ public enum NoiseMode: String, CaseIterable, Codable, Sendable {
     public var title: String {
         self == .systemDefault ? "System Default" : rawValue.capitalized
     }
-
-    public func targetRPM(
-        minimum: Int,
-        maximum: Int
-    ) -> Int? {
-        switch self {
-        case .systemDefault:
-            return nil
-        case .ultra:
-            return maximum
-        case .quiet:
-            return minimum
-        }
-    }
 }
 
 public enum FanControlMenuSection: Equatable, Sendable {

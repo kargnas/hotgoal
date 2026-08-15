@@ -38,7 +38,7 @@ Presets are available as secondary controls under **Preset Fan Modes**. Only one
 | Quiet | Hardware minimum | Immediately holds every fan at its hardware minimum. |
 | Ultra | Maximum | Runs every fan at 100%. |
 
-The 90 °C safety override (three consecutive samples) still sends every fan to its hardware maximum, including in Quiet mode.
+Quiet mode is unconditional: it always holds the hardware minimum and never reacts to temperature. The 90 °C safety override applies only to target-temperature control.
 
 ## Live temperature and fan status
 
