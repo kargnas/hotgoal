@@ -9,6 +9,7 @@ private final class FanService: @unchecked Sendable {
     private var controlTimer: DispatchSourceTimer?
     private var activeControl: FanControl?
     private var temperatureAverage = TemperatureAverage()
+    private var criticalGate = CriticalTemperatureGate()
     private var stabilizer = FanTargetStabilizer()
 
     init(reader: SMCReader) {
@@ -39,6 +40,7 @@ private final class FanService: @unchecked Sendable {
         activeControl = nil
         cancelControlTimerLocked()
         temperatureAverage = TemperatureAverage()
+        criticalGate = CriticalTemperatureGate()
         stabilizer = FanTargetStabilizer()
 
         do {
@@ -86,7 +88,7 @@ private final class FanService: @unchecked Sendable {
             throw SMCReader.ReaderError.temperatureUnavailable
         }
         let now = ProcessInfo.processInfo.systemUptime
-        if temperature >= 90 {
+        if criticalGate.register(temperature, at: now) {
             let fans = try reader.fanSnapshots()
             guard !fans.isEmpty else { throw SMCReader.ReaderError.invalidFan }
             try reader.setFanTargets(stabilizer.forceMaximumTargets(for: fans, at: now))
@@ -131,6 +133,7 @@ private final class FanService: @unchecked Sendable {
         activeControl = nil
         cancelControlTimerLocked()
         temperatureAverage = TemperatureAverage()
+        criticalGate = CriticalTemperatureGate()
         stabilizer = FanTargetStabilizer()
         try reader.restoreAutomatic()
     }

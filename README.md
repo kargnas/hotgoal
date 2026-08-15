@@ -22,7 +22,7 @@ The feedback loop changes fan speed gradually instead of jumping straight betwee
 - Below the target, it requests 20 fewer RPM per degree of error.
 - A separate stabilizer bounds subsequent changes to 100 RPM per second upward and 200 RPM per second downward.
 - Inside a ±0.5 °C deadband, it holds the current target to avoid fan hunting.
-- At an instantaneous 90 °C, it immediately requests the hardware maximum for every fan.
+- At 90 °C on three consecutive one-second samples, it immediately requests the hardware maximum for every fan. Single-sample sensor glitches do not trigger the override.
 
 The signed privileged helper remains the source of truth and reapplies manual fan targets after sleep or an SMC reset. Quitting the app or losing the helper connection restores Apple automatic control.
 
@@ -38,7 +38,7 @@ Presets are available as secondary controls under **Preset Fan Modes**. Only one
 | Quiet | Hardware minimum | Immediately holds every fan at its hardware minimum. |
 | Ultra | Maximum | Runs every fan at 100%. |
 
-The 90 °C safety override still sends every fan to its hardware maximum, including in Quiet mode.
+The 90 °C safety override (three consecutive samples) still sends every fan to its hardware maximum, including in Quiet mode.
 
 ## Live temperature and fan status
 

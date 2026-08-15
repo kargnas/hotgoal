@@ -204,6 +204,28 @@ final class TemperaturePresentationTests: XCTestCase {
         XCTAssertNil(average.append(20, at: 20))
     }
 
+    func testCriticalTemperatureGateIgnoresSingleSampleSensorGlitches() {
+        var gate = CriticalTemperatureGate()
+        // One glitched 90+ reading between normal readings must not trip the override.
+        XCTAssertFalse(gate.register(55, at: 0))
+        XCTAssertFalse(gate.register(93, at: 1))
+        XCTAssertFalse(gate.register(56, at: 2))
+
+        // Three consecutive readings are genuine overheating and must trip it.
+        XCTAssertFalse(gate.register(91, at: 3))
+        XCTAssertFalse(gate.register(92, at: 4))
+        XCTAssertTrue(gate.register(95, at: 5))
+        // The gate stays latched while the temperature remains critical.
+        XCTAssertTrue(gate.register(94, at: 6))
+        XCTAssertFalse(gate.register(70, at: 7))
+
+        // A wake gap breaks streak continuity: stale critical samples cannot combine.
+        var wakeGate = CriticalTemperatureGate()
+        XCTAssertFalse(wakeGate.register(91, at: 0))
+        XCTAssertFalse(wakeGate.register(92, at: 1))
+        XCTAssertFalse(wakeGate.register(93, at: 10))
+    }
+
     func testFanTargetStabilizerHoldsCoolingAndLimitsRpmChanges() {
         var stabilizer = FanTargetStabilizer()
 

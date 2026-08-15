@@ -153,6 +153,32 @@ public enum TargetTemperatureController {
     }
 }
 
+public struct CriticalTemperatureGate: Sendable {
+    public static let criticalCelsius = 90.0
+    // Apple Silicon SMC sensor averages show ±8-13 °C single-sample noise (dormant-core
+    // subset changes), so one instantaneous reading above 90 °C is not evidence of real
+    // overheating. Three consecutive one-second samples filter every observed glitch while
+    // delaying a genuine runaway response by at most two seconds.
+    public static let requiredConsecutiveSamples = 3
+    public static let maximumSampleGap: TimeInterval = 2
+
+    private var consecutiveCriticalSamples = 0
+    private var previousSampleTime: TimeInterval?
+
+    public init() {}
+
+    public mutating func register(_ celsius: Double, at time: TimeInterval) -> Bool {
+        // A wake or stalled timer invalidates streak continuity the same way it invalidates
+        // the rolling average, so stale critical counts must not combine with fresh ones.
+        if let previousSampleTime, time - previousSampleTime > Self.maximumSampleGap {
+            consecutiveCriticalSamples = 0
+        }
+        previousSampleTime = time
+        consecutiveCriticalSamples = celsius >= Self.criticalCelsius ? consecutiveCriticalSamples + 1 : 0
+        return consecutiveCriticalSamples >= Self.requiredConsecutiveSamples
+    }
+}
+
 public struct TemperatureAverage: Sendable {
     public static let sampleCount = 10
     public static let maximumSampleGap: TimeInterval = 2
