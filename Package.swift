@@ -22,6 +22,13 @@ let package = Package(
                 .linkedFramework("Security"),
             ]
         ),
+        .target(
+            name: "HotGoalForMacCore",
+            linkerSettings: [
+                .linkedFramework("IOKit"),
+                .linkedFramework("Security"),
+            ]
+        ),
         .executableTarget(
             name: "HotTarget",
             dependencies: [
