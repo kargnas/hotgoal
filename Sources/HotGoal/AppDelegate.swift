@@ -1,6 +1,6 @@
 import AppKit
 import Foundation
-import HotGoalForMacCore
+import HotGoalCore
 import Sparkle
 
 @MainActor
@@ -104,7 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func configureStatusItem() {
         guard let button = statusItem.button else { return }
-        statusItem.autosaveName = "HotGoalForMacMenuBarItem"
+        statusItem.autosaveName = "HotGoalMenuBarItem"
         button.imageScaling = .scaleProportionallyDown
         button.setAccessibilityLabel("CPU temperature")
         statusView.frame = button.bounds
@@ -171,7 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
-        let quitItem = NSMenuItem(title: "Quit Hot Goal for Mac", action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Quit Hot Goal", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
         updateChecks()

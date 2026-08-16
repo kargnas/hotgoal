@@ -3,37 +3,37 @@
 import PackageDescription
 
 let package = Package(
-    name: "hot-goal-for-mac",
+    name: "hot-goal",
     platforms: [
         .macOS(.v14),
     ],
     products: [
-        .executable(name: "hot-goal-for-mac", targets: ["HotGoalForMac"]),
-        .executable(name: "hot-goal-for-mac-helper", targets: ["HotGoalForMacHelper"]),
+        .executable(name: "hot-goal", targets: ["HotGoal"]),
+        .executable(name: "hot-goal-helper", targets: ["HotGoalHelper"]),
     ],
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.8.1"),
     ],
     targets: [
         .target(
-            name: "HotGoalForMacCore",
+            name: "HotGoalCore",
             linkerSettings: [
                 .linkedFramework("IOKit"),
                 .linkedFramework("Security"),
             ]
         ),
         .executableTarget(
-            name: "HotGoalForMac",
+            name: "HotGoal",
             dependencies: [
-                "HotGoalForMacCore",
+                "HotGoalCore",
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
             linkerSettings: [.linkedFramework("ServiceManagement")]
         ),
         .executableTarget(
-            name: "HotGoalForMacHelper",
-            dependencies: ["HotGoalForMacCore"]
+            name: "HotGoalHelper",
+            dependencies: ["HotGoalCore"]
         ),
-        .testTarget(name: "HotGoalForMacTests", dependencies: ["HotGoalForMacCore"]),
+        .testTarget(name: "HotGoalTests", dependencies: ["HotGoalCore"]),
     ]
 )

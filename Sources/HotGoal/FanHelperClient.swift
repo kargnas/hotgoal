@@ -1,5 +1,5 @@
 @preconcurrency import Foundation
-import HotGoalForMacCore
+import HotGoalCore
 
 @MainActor
 final class FanHelperClient {

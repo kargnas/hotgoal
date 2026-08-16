@@ -1,5 +1,5 @@
 import AppKit
-import HotGoalForMacCore
+import HotGoalCore
 
 @MainActor
 final class TemperatureLogWindowController: NSWindowController {

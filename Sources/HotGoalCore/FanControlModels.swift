@@ -3,10 +3,10 @@ import Foundation
 // Fan hysteresis and asymmetric RPM slew limits are adapted from
 // leaperone/smctl (MIT); see THIRD_PARTY_NOTICES.md.
 
-public let fanHelperMachServiceName = "as.kargn.hotgoalformac.helper"
-public let fanHelperBundleIdentifier = "as.kargn.hotgoalformac.helper"
-public let mainAppBundleIdentifier = "as.kargn.hotgoalformac"
-public let fanHelperPlistName = "as.kargn.hotgoalformac.helper.plist"
+public let fanHelperMachServiceName = "as.kargn.hotgoal.helper"
+public let fanHelperBundleIdentifier = "as.kargn.hotgoal.helper"
+public let mainAppBundleIdentifier = "as.kargn.hotgoal"
+public let fanHelperPlistName = "as.kargn.hotgoal.helper.plist"
 
 public struct FanSnapshot: Codable, Equatable, Sendable {
     public let index: Int

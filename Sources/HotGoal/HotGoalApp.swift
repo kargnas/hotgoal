@@ -3,10 +3,10 @@ import Darwin
 import Dispatch
 import Foundation
 import ServiceManagement
-import HotGoalForMacCore
+import HotGoalCore
 
 @main
-enum HotGoalForMacApp {
+enum HotGoalApp {
     @MainActor
     static func main() {
         if runCommandLine() { return }

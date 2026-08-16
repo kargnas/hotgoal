@@ -1,5 +1,5 @@
 import ServiceManagement
-import HotGoalForMacCore
+import HotGoalCore
 
 enum FanHelperRegistrationState {
     case notRegistered

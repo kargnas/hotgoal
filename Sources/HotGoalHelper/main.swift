@@ -1,11 +1,11 @@
 import Dispatch
 import Foundation
-import HotGoalForMacCore
+import HotGoalCore
 
 private final class FanService: @unchecked Sendable {
     private let reader: SMCReader
     private let lock = NSRecursiveLock()
-    private let timerQueue = DispatchQueue(label: "as.kargn.hotgoalformac.helper.temperature-control")
+    private let timerQueue = DispatchQueue(label: "as.kargn.hotgoal.helper.temperature-control")
     private var controlTimer: DispatchSourceTimer?
     private var activeControl: FanControl?
     private var temperatureAverage = TemperatureAverage()
@@ -60,13 +60,13 @@ private final class FanService: @unchecked Sendable {
             do {
                 try reconcileLocked(control)
             } catch {
-                NSLog("hot-goal-for-mac-helper fan control failed: \(error)")
+                NSLog("hot-goal-helper fan control failed: \(error)")
                 activeControl = nil
                 cancelControlTimerLocked()
                 do {
                     try reader.restoreAutomatic()
                 } catch {
-                    NSLog("hot-goal-for-mac-helper automatic reset failed: \(error)")
+                    NSLog("hot-goal-helper automatic reset failed: \(error)")
                 }
             }
         }
@@ -198,13 +198,13 @@ private final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
         let shouldRestore = connections.isEmpty
         lock.unlock()
         if shouldRestore, case let .failure(error) = fanService.restoreAutomatic() {
-        NSLog("hot-goal-for-mac-helper disconnect reset failed: \(error)")
+        NSLog("hot-goal-helper disconnect reset failed: \(error)")
         }
     }
 }
 
 guard geteuid() == 0 else {
-    NSLog("hot-goal-for-mac-helper must run as root")
+    NSLog("hot-goal-helper must run as root")
     exit(77)
 }
 
@@ -212,13 +212,13 @@ let reader: SMCReader
 do {
     reader = try SMCReader()
 } catch {
-    NSLog("hot-goal-for-mac-helper cannot open AppleSMC: \(error)")
+    NSLog("hot-goal-helper cannot open AppleSMC: \(error)")
     exit(78)
 }
 
 private let fanService = FanService(reader: reader)
 if case let .failure(error) = fanService.restoreAutomatic() {
-    NSLog("hot-goal-for-mac-helper startup reset failed: \(error)")
+    NSLog("hot-goal-helper startup reset failed: \(error)")
 }
 private let exportedService = ExportedFanService(service: fanService)
 private let delegate = ListenerDelegate(exportedService: exportedService, fanService: fanService)
@@ -232,14 +232,14 @@ do {
     ).text
     listener.setConnectionCodeSigningRequirement(requirement)
 } catch {
-    NSLog("hot-goal-for-mac-helper cannot establish signed client requirement: \(error)")
+    NSLog("hot-goal-helper cannot establish signed client requirement: \(error)")
     exit(78)
 }
 
 listener.delegate = delegate
 signal(SIGTERM, SIG_IGN)
 signal(SIGINT, SIG_IGN)
-let signalQueue = DispatchQueue(label: "as.kargn.hotgoalformac.helper.signal")
+let signalQueue = DispatchQueue(label: "as.kargn.hotgoal.helper.signal")
 let signals = [SIGTERM, SIGINT].map { signalNumber in
     let source = DispatchSource.makeSignalSource(signal: signalNumber, queue: signalQueue)
     source.setEventHandler {

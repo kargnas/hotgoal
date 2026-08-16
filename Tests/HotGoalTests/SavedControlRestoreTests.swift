@@ -1,5 +1,5 @@
 import XCTest
-@testable import HotGoalForMacCore
+@testable import HotGoalCore
 
 final class SavedControlRestoreTests: XCTestCase {
     func testRestoresSavedControlOnlyWhenHelperReportsNone() {

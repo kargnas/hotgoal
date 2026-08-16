@@ -1,6 +1,6 @@
 import AppKit
 import QuartzCore
-import HotGoalForMacCore
+import HotGoalCore
 
 @MainActor
 final class ThermalMotesStatusView: NSView {

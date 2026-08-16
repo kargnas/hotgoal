@@ -1,7 +1,7 @@
 import Dispatch
 import Foundation
 import XCTest
-@testable import HotGoalForMacCore
+@testable import HotGoalCore
 
 final class MainActorCallbackTests: XCTestCase {
     func testBackgroundInvocationWithoutArgumentsRunsOnMainActor() async {

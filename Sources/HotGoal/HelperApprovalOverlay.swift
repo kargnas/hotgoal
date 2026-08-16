@@ -1,10 +1,10 @@
 import AppKit
-import HotGoalForMacCore
+import HotGoalCore
 
 /// Floating chip that rides inside the System Settings window and points at the row the
 /// user has to switch on.
 ///
-/// Hot Goal for Mac is a menu-bar accessory: the moment System Settings opens, the app has no
+/// Hot Goal is a menu-bar accessory: the moment System Settings opens, the app has no
 /// window left to explain itself in, and nothing in the pane says a fan helper is waiting
 /// for approval. The chip is the only place that instruction can live.
 @MainActor
@@ -16,7 +16,7 @@ final class HelperApprovalOverlay {
     private static let confirmationDuration: TimeInterval = 6
 
     private static var appName: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Hot Goal for Mac"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Hot Goal"
     }
 
     private var panel: NSPanel?
