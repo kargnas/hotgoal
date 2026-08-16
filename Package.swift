@@ -3,13 +3,13 @@
 import PackageDescription
 
 let package = Package(
-    name: "hot-goal",
+    name: "hotgoal",
     platforms: [
         .macOS(.v14),
     ],
     products: [
-        .executable(name: "hot-goal", targets: ["HotGoal"]),
-        .executable(name: "hot-goal-helper", targets: ["HotGoalHelper"]),
+        .executable(name: "hotgoal", targets: ["HotGoal"]),
+        .executable(name: "hotgoal-helper", targets: ["HotGoalHelper"]),
     ],
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.8.1"),
