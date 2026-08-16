@@ -4,61 +4,41 @@
       "type": "swift",
       "request": "launch",
       "args": [],
-      "cwd": "${workspaceFolder:thermal-icon}",
-      "name": "Debug hottarget",
-      "target": "hottarget",
+      "cwd": "${workspaceFolder}",
+      "name": "Debug hot-goal-for-mac",
+      "target": "hot-goal-for-mac",
       "configuration": "debug",
-      "preLaunchTask": "swift: Build Debug hottarget"
+      "preLaunchTask": "swift: Build Debug hot-goal-for-mac"
     },
     {
       "type": "swift",
       "request": "launch",
       "args": [],
-      "cwd": "${workspaceFolder:thermal-icon}",
-      "name": "Release hottarget",
-      "target": "hottarget",
+      "cwd": "${workspaceFolder}",
+      "name": "Release hot-goal-for-mac",
+      "target": "hot-goal-for-mac",
       "configuration": "release",
-      "preLaunchTask": "swift: Build Release hottarget"
+      "preLaunchTask": "swift: Build Release hot-goal-for-mac"
     },
     {
       "type": "swift",
       "request": "launch",
       "args": [],
-      "cwd": "${workspaceFolder:thermal-icon}",
-      "name": "Debug hottarget-helper",
-      "target": "hottarget-helper",
+      "cwd": "${workspaceFolder}",
+      "name": "Debug hot-goal-for-mac-helper",
+      "target": "hot-goal-for-mac-helper",
       "configuration": "debug",
-      "preLaunchTask": "swift: Build Debug hottarget-helper"
+      "preLaunchTask": "swift: Build Debug hot-goal-for-mac-helper"
     },
     {
       "type": "swift",
       "request": "launch",
       "args": [],
-      "cwd": "${workspaceFolder:thermal-icon}",
-      "name": "Release hottarget-helper",
-      "target": "hottarget-helper",
+      "cwd": "${workspaceFolder}",
+      "name": "Release hot-goal-for-mac-helper",
+      "target": "hot-goal-for-mac-helper",
       "configuration": "release",
-      "preLaunchTask": "swift: Build Release hottarget-helper"
-    },
-    {
-      "type": "swift",
-      "request": "launch",
-      "args": [],
-      "cwd": "${workspaceFolder:thermal-icon}",
-      "name": "Debug hottarget-mas",
-      "target": "hottarget-mas",
-      "configuration": "debug",
-      "preLaunchTask": "swift: Build Debug hottarget-mas"
-    },
-    {
-      "type": "swift",
-      "request": "launch",
-      "args": [],
-      "cwd": "${workspaceFolder:thermal-icon}",
-      "name": "Release hottarget-mas",
-      "target": "hottarget-mas",
-      "configuration": "release",
-      "preLaunchTask": "swift: Build Release hottarget-mas"
+      "preLaunchTask": "swift: Build Release hot-goal-for-mac-helper"
     }
   ]
 }
