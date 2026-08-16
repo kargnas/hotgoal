@@ -5,40 +5,40 @@
       "request": "launch",
       "args": [],
       "cwd": "${workspaceFolder}",
-      "name": "Debug hot-goal",
-      "target": "hot-goal",
+      "name": "Debug hotgoal",
+      "target": "hotgoal",
       "configuration": "debug",
-      "preLaunchTask": "swift: Build Debug hot-goal"
+      "preLaunchTask": "swift: Build Debug hotgoal"
     },
     {
       "type": "swift",
       "request": "launch",
       "args": [],
       "cwd": "${workspaceFolder}",
-      "name": "Release hot-goal",
-      "target": "hot-goal",
+      "name": "Release hotgoal",
+      "target": "hotgoal",
       "configuration": "release",
-      "preLaunchTask": "swift: Build Release hot-goal"
+      "preLaunchTask": "swift: Build Release hotgoal"
     },
     {
       "type": "swift",
       "request": "launch",
       "args": [],
       "cwd": "${workspaceFolder}",
-      "name": "Debug hot-goal-helper",
-      "target": "hot-goal-helper",
+      "name": "Debug hotgoal-helper",
+      "target": "hotgoal-helper",
       "configuration": "debug",
-      "preLaunchTask": "swift: Build Debug hot-goal-helper"
+      "preLaunchTask": "swift: Build Debug hotgoal-helper"
     },
     {
       "type": "swift",
       "request": "launch",
       "args": [],
       "cwd": "${workspaceFolder}",
-      "name": "Release hot-goal-helper",
-      "target": "hot-goal-helper",
+      "name": "Release hotgoal-helper",
+      "target": "hotgoal-helper",
       "configuration": "release",
-      "preLaunchTask": "swift: Build Release hot-goal-helper"
+      "preLaunchTask": "swift: Build Release hotgoal-helper"
     }
   ]
 }
