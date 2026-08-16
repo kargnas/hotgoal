@@ -10,6 +10,7 @@ let package = Package(
     products: [
         .executable(name: "hottarget", targets: ["HotTarget"]),
         .executable(name: "hottarget-helper", targets: ["HotTargetHelper"]),
+        .executable(name: "hot-goal-for-mac", targets: ["HotGoalForMac"]),
     ],
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.8.1"),
@@ -28,6 +29,14 @@ let package = Package(
                 .linkedFramework("IOKit"),
                 .linkedFramework("Security"),
             ]
+        ),
+        .executableTarget(
+            name: "HotGoalForMac",
+            dependencies: [
+                "HotGoalForMacCore",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
+            linkerSettings: [.linkedFramework("ServiceManagement")]
         ),
         .executableTarget(
             name: "HotTarget",
