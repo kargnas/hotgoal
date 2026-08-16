@@ -40,7 +40,7 @@ public final class TemperatureCSVLog {
             }
             lastSampleAt = date
         } catch {
-            NSLog("hot-goal temperature log write failed: \(error)")
+            NSLog("hotgoal temperature log write failed: \(error)")
         }
 
         guard lastCleanupAt.map({ date.timeIntervalSince($0) >= 60 * 60 }) != false else { return }
@@ -59,7 +59,7 @@ public final class TemperatureCSVLog {
             }
             lastCleanupAt = date
         } catch {
-            NSLog("hot-goal temperature log cleanup failed: \(error)")
+            NSLog("hotgoal temperature log cleanup failed: \(error)")
         }
     }
 
@@ -79,6 +79,6 @@ public final class TemperatureCSVLog {
 
     public static let defaultDirectoryURL = FileManager.default
         .urls(for: .libraryDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("Logs/hot-goal", isDirectory: true)
+        .appendingPathComponent("Logs/hotgoal", isDirectory: true)
 
 }
