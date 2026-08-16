@@ -7,7 +7,7 @@ import CoreGraphics
 
 let outputDirectory = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "."
 
-// 팔레트는 HotGoalForMacCore/TemperaturePresentation.swift 의 3단계와 같은 값이다.
+// 팔레트는 HotGoalCore/TemperaturePresentation.swift 의 3단계와 같은 값이다.
 let backgroundTop = CGColor(srgbRed: 0.227, green: 0.247, blue: 0.278, alpha: 1) // #3A3F47
 let backgroundBottom = CGColor(srgbRed: 0.110, green: 0.122, blue: 0.141, alpha: 1) // #1C1F24
 let outline = CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.92)

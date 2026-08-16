@@ -207,7 +207,7 @@ jobs:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          KEYCHAIN_PATH="$RUNNER_TEMP/hot-goal-for-mac-signing.keychain-db"
+          KEYCHAIN_PATH="$RUNNER_TEMP/hot-goal-signing.keychain-db"
           P12_PATH="$RUNNER_TEMP/developer-id-application.p12"
           NOTARY_KEY_PATH="$RUNNER_TEMP/notarytool-key.p8"
           SPARKLE_KEY_PATH="$RUNNER_TEMP/sparkle-private-key"
@@ -259,10 +259,10 @@ jobs:
           NOTARYTOOL_ISSUER_ID: ${{ secrets.NOTARYTOOL_ISSUER_ID }}
         run: |
           set -euo pipefail
-          APP="$RELEASE_DIR/Hot Goal for Mac.app"
-          ARCHIVE="$RELEASE_DIR/Hot-Goal-for-Mac-$VERSION.zip"
-          DMG="$RELEASE_DIR/Hot-Goal-for-Mac-$VERSION.dmg"
-          DMG_STAGE="$RUNNER_TEMP/hot-goal-for-mac-dmg-stage"
+          APP="$RELEASE_DIR/Hot Goal.app"
+          ARCHIVE="$RELEASE_DIR/Hot-Goal-$VERSION.zip"
+          DMG="$RELEASE_DIR/Hot-Goal-$VERSION.dmg"
+          DMG_STAGE="$RUNNER_TEMP/hot-goal-dmg-stage"
           NOTARY_KEY_PATH="$RUNNER_TEMP/notarytool-key.p8"
 
           xcrun notarytool submit "$ARCHIVE" \
@@ -277,10 +277,10 @@ jobs:
 
           rm -rf "$DMG_STAGE"
           mkdir -p "$DMG_STAGE"
-          /usr/bin/ditto "$APP" "$DMG_STAGE/Hot Goal for Mac.app"
+          /usr/bin/ditto "$APP" "$DMG_STAGE/Hot Goal.app"
           ln -s /Applications "$DMG_STAGE/Applications"
           hdiutil create \
-            -volname "Hot Goal for Mac" \
+            -volname "Hot Goal" \
             -srcfolder "$DMG_STAGE" \
             -ov \
             -format UDZO \
@@ -302,7 +302,7 @@ jobs:
       - name: Sign update and generate appcast
         run: |
           set -euo pipefail
-          DMG="$RELEASE_DIR/Hot-Goal-for-Mac-$VERSION.dmg"
+          DMG="$RELEASE_DIR/Hot-Goal-$VERSION.dmg"
           CHECKSUM="$DMG.sha256"
           APPCAST="$RELEASE_DIR/appcast.xml"
           SPARKLE_KEY_PATH="$RUNNER_TEMP/sparkle-private-key"
@@ -311,7 +311,7 @@ jobs:
           PRIVATE_DER="$RUNNER_TEMP/sparkle-private.der"
 
           [[ -x "$SIGN_UPDATE" ]] || { echo "checksum-verified SwiftPM sign_update tool not found" >&2; exit 1; }
-          EXPECTED_PUBLIC_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$RELEASE_DIR/Hot Goal for Mac.app/Contents/Info.plist")"
+          EXPECTED_PUBLIC_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$RELEASE_DIR/Hot Goal.app/Contents/Info.plist")"
           SEED_BASE64="$(tr -d '[:space:]' < "$SPARKLE_KEY_PATH")"
           printf '%s' "$SEED_BASE64" | /usr/bin/base64 -D > "$SEED_RAW"
           [[ "$(stat -f '%z' "$SEED_RAW")" -eq 32 ]] || {
@@ -337,17 +337,17 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
             <channel>
-              <title>Hot Goal for Mac Updates</title>
-              <link>https://github.com/kargnas/hot-goal-for-mac/releases/latest/download/appcast.xml</link>
-              <description>Hot Goal for Mac automatic updates</description>
+              <title>Hot Goal Updates</title>
+              <link>https://github.com/kargnas/hot-goal/releases/latest/download/appcast.xml</link>
+              <description>Hot Goal automatic updates</description>
               <language>en</language>
               <item>
-                <title>Hot Goal for Mac $VERSION</title>
+                <title>Hot Goal $VERSION</title>
                 <pubDate>$PUB_DATE</pubDate>
                 <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-                <sparkle:releaseNotesLink>https://github.com/kargnas/hot-goal-for-mac/releases/tag/$TAG</sparkle:releaseNotesLink>
+                <sparkle:releaseNotesLink>https://github.com/kargnas/hot-goal/releases/tag/$TAG</sparkle:releaseNotesLink>
                 <enclosure
-                  url="https://github.com/kargnas/hot-goal-for-mac/releases/download/$TAG/Hot-Goal-for-Mac-$VERSION.dmg"
+                  url="https://github.com/kargnas/hot-goal/releases/download/$TAG/Hot-Goal-$VERSION.dmg"
                   sparkle:version="$BUILD_NUMBER"
                   sparkle:shortVersionString="$VERSION"
                   sparkle:edSignature="$ED_SIGNATURE"
@@ -361,7 +361,7 @@ jobs:
           xmllint --noout "$APPCAST"
           (
             cd "$RELEASE_DIR"
-            shasum -a 256 "Hot-Goal-for-Mac-$VERSION.dmg" > "Hot-Goal-for-Mac-$VERSION.dmg.sha256"
+            shasum -a 256 "Hot-Goal-$VERSION.dmg" > "Hot-Goal-$VERSION.dmg.sha256"
           )
           [[ -s "$CHECKSUM" && -s "$APPCAST" ]]
 
@@ -370,7 +370,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          DMG="$RELEASE_DIR/Hot-Goal-for-Mac-$VERSION.dmg"
+          DMG="$RELEASE_DIR/Hot-Goal-$VERSION.dmg"
           CHECKSUM="$DMG.sha256"
           APPCAST="$RELEASE_DIR/appcast.xml"
 
@@ -382,7 +382,7 @@ jobs:
               exit 1
             }
             gh release upload "$TAG" "$DMG" "$CHECKSUM" "$APPCAST" --clobber
-            gh release edit "$TAG" --title "Hot Goal for Mac $VERSION" --latest
+            gh release edit "$TAG" --title "Hot Goal $VERSION" --latest
             exit 0
           fi
 
@@ -394,19 +394,19 @@ jobs:
               --verify-tag \
               --generate-notes \
               --latest \
-              --title "Hot Goal for Mac $VERSION"
+              --title "Hot Goal $VERSION"
           else
             gh release create "$TAG" "$DMG" "$CHECKSUM" "$APPCAST" \
               --target "$COMMIT_SHA" \
               --generate-notes \
               --latest \
-              --title "Hot Goal for Mac $VERSION"
+              --title "Hot Goal $VERSION"
           fi
 
       - name: Delete temporary signing material
         if: always()
         run: |
-          KEYCHAIN_PATH="$RUNNER_TEMP/hot-goal-for-mac-signing.keychain-db"
+          KEYCHAIN_PATH="$RUNNER_TEMP/hot-goal-signing.keychain-db"
           P12_PATH="$RUNNER_TEMP/developer-id-application.p12"
           NOTARY_KEY_PATH="$RUNNER_TEMP/notarytool-key.p8"
           SPARKLE_KEY_PATH="$RUNNER_TEMP/sparkle-private-key"
@@ -414,4 +414,4 @@ jobs:
           security delete-keychain "$KEYCHAIN_PATH" >/dev/null 2>&1 || true
           rm -f "$P12_PATH" "$NOTARY_KEY_PATH" "$SPARKLE_KEY_PATH"
           rm -f "$RUNNER_TEMP/sparkle-seed.raw" "$RUNNER_TEMP/sparkle-private.der"
-          rm -rf "$RUNNER_TEMP/hot-goal-for-mac-dmg-stage"
+          rm -rf "$RUNNER_TEMP/hot-goal-dmg-stage"

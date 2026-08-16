@@ -1,6 +1,6 @@
 # Direct release and Sparkle updates
 
-Hot Goal for Mac releases are built by `.github/workflows/release-direct.yml`. One workflow handles three entry points:
+Hot Goal releases are built by `.github/workflows/release-direct.yml`. One workflow handles three entry points:
 
 - A code, package, script, test, or workflow push to `main` waits 10 minutes for more commits and then creates the next patch release. A newer main push cancels only the older waiting job.
 - A `vMAJOR.MINOR.PATCH` tag push releases that exact tag and commit without waiting.
@@ -45,14 +45,14 @@ The Apple Team ID (`6YQH3QFFK8`), API key ID, issuer ID, certificate name, and S
      --issuer "$NOTARYTOOL_ISSUER_ID"
    ```
 
-4. Copy the deployed Sparkle seed from its secure backup to `$TMPDIR/hot-goal-for-mac-sparkle-key`. The workflow derives its public key and fails before publishing if it does not match the `SUPublicEDKey` embedded by the bundle scripts.
+4. Copy the deployed Sparkle seed from its secure backup to `$TMPDIR/hot-goal-sparkle-key`. The workflow derives its public key and fails before publishing if it does not match the `SUPublicEDKey` embedded by the bundle scripts.
 
 ## Upload secrets
 
 Write values through stdin so they do not appear in command history:
 
 ```bash
-REPO=kargnas/hot-goal-for-mac
+REPO=kargnas/hot-goal
 ENVIRONMENT=direct-release
 
 base64 -i DeveloperIDApplication.p12 | \
@@ -69,16 +69,16 @@ printf '%s' "$NOTARYTOOL_KEY_ID" | \
 printf '%s' "$NOTARYTOOL_ISSUER_ID" | \
   gh secret set NOTARYTOOL_ISSUER_ID --env "$ENVIRONMENT" --repo "$REPO"
 
-cat "$TMPDIR/hot-goal-for-mac-sparkle-key" | \
+cat "$TMPDIR/hot-goal-sparkle-key" | \
   gh secret set SPARKLE_PRIVATE_KEY --env "$ENVIRONMENT" --repo "$REPO"
 ```
 
 Delete every export after names-only verification:
 
 ```bash
-gh secret list --env direct-release --repo kargnas/hot-goal-for-mac
+gh secret list --env direct-release --repo kargnas/hot-goal
 rm -f DeveloperIDApplication.p12 DeveloperIDApplication.password AuthKey.p8 \
-  "$TMPDIR/hot-goal-for-mac-sparkle-key"
+  "$TMPDIR/hot-goal-sparkle-key"
 ```
 
 ## Publish releases
@@ -88,14 +88,14 @@ A normal code push to main creates a patch release after the 10-minute debounce.
 Push an exact version when required:
 
 ```bash
-git tag -a v1.8.3 -m "Hot Goal for Mac 1.8.3"
+git tag -a v1.8.3 -m "Hot Goal 1.8.3"
 git push origin v1.8.3
 ```
 
 Run a manual bump from GitHub or with `gh`:
 
 ```bash
-gh workflow run release-direct.yml --repo kargnas/hot-goal-for-mac -f bump=minor
+gh workflow run release-direct.yml --repo kargnas/hot-goal -f bump=minor
 ```
 
 The first automatic release falls back from the existing app version 1.8.2 to v1.8.3 when no prior semantic-version tag exists. Later releases use the highest strict semantic-version tag. `CFBundleVersion` and appcast `sparkle:version` use the same monotonic numeric build value.
@@ -103,29 +103,29 @@ The first automatic release falls back from the existing app version 1.8.2 to v1
 After completion, verify workflow and release metadata:
 
 ```bash
-gh run list --workflow release-direct.yml --repo kargnas/hot-goal-for-mac
-gh release view v1.8.3 --repo kargnas/hot-goal-for-mac
-curl -fsSL https://github.com/kargnas/hot-goal-for-mac/releases/latest/download/appcast.xml
+gh run list --workflow release-direct.yml --repo kargnas/hot-goal
+gh release view v1.8.3 --repo kargnas/hot-goal
+curl -fsSL https://github.com/kargnas/hot-goal/releases/latest/download/appcast.xml
 ```
 
 Release assets are:
 
-- `Hot-Goal-for-Mac-<version>.dmg`
-- `Hot-Goal-for-Mac-<version>.dmg.sha256`
+- `Hot-Goal-<version>.dmg`
+- `Hot-Goal-<version>.dmg.sha256`
 - `appcast.xml`
 
 ## End-to-end verification
 
 ```bash
-curl -fsSLO https://github.com/kargnas/hot-goal-for-mac/releases/latest/download/Hot-Goal-for-Mac-1.8.3.dmg
-spctl -a -t open --context context:primary-signature -v Hot-Goal-for-Mac-1.8.3.dmg
-xcrun stapler validate Hot-Goal-for-Mac-1.8.3.dmg
+curl -fsSLO https://github.com/kargnas/hot-goal/releases/latest/download/Hot-Goal-1.8.3.dmg
+spctl -a -t open --context context:primary-signature -v Hot-Goal-1.8.3.dmg
+xcrun stapler validate Hot-Goal-1.8.3.dmg
 /usr/bin/log show --last 3m \
   --predicate 'subsystem == "org.sparkle-project.Sparkle"' \
   --style compact
 ```
 
-An update check should log that the EdDSA signature is correct. Release builds check daily and install downloaded updates when Hot Goal for Mac quits. Development bundles keep automatic checks and installation disabled but retain the manual **Check for Updates…** command.
+An update check should log that the EdDSA signature is correct. Release builds check daily and install downloaded updates when Hot Goal quits. Development bundles keep automatic checks and installation disabled but retain the manual **Check for Updates…** command.
 
 ## Local packaging check
 
