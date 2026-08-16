@@ -2,14 +2,14 @@
 
 Native macOS menu-bar utility that automatically adjusts fan speed to maintain a temperature you choose.
 
-[**Download the latest direct release →**](https://github.com/kargnas/hot-goal-for-mac/releases/latest)
+[**Download the latest direct release →**](https://github.com/kargnas/hot-goal/releases/latest)
 
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111827?logo=apple)](https://www.apple.com/macos/)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](Package.swift)
 [![GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-2563eb)](LICENSE)
 
 <p align="center">
-  <img height="300" alt="Hot Goal for Mac target-temperature control" src="docs/hot-goal-for-mac.gif" />
+  <img height="300" alt="Hot Goal target-temperature control" src="docs/hot-goal.gif" />
 </p>
 
 ## Maintain a target temperature
@@ -24,9 +24,9 @@ The feedback loop changes fan speed gradually instead of jumping straight betwee
 - Inside a ±0.5 °C deadband, it holds the current target to avoid fan hunting.
 - At 90 °C on three consecutive one-second samples, it immediately requests the hardware maximum for every fan. Single-sample sensor glitches do not trigger the override.
 
-The signed privileged helper remains the source of truth and reapplies manual fan targets after sleep or an SMC reset. Quitting the app or losing the helper connection restores Apple automatic control. Hot Goal for Mac remembers your last selection and reapplies it automatically on the next launch; after choosing **System Default**, launches leave macOS in control.
+The signed privileged helper remains the source of truth and reapplies manual fan targets after sleep or an SMC reset. Quitting the app or losing the helper connection restores Apple automatic control. Hot Goal remembers your last selection and reapplies it automatically on the next launch; after choosing **System Default**, launches leave macOS in control.
 
-While target-temperature control is active, Hot Goal for Mac writes `timestamp,target_celsius,actual_celsius` once per second to daily CSV files in `~/Library/Logs/hot-goal-for-mac/`. Files whose last sample is older than 72 hours are deleted automatically. Choose **Temperature Log…** to inspect the retained history in a native window.
+While target-temperature control is active, Hot Goal writes `timestamp,target_celsius,actual_celsius` once per second to daily CSV files in `~/Library/Logs/hot-goal/`. Files whose last sample is older than 72 hours are deleted automatically. Choose **Temperature Log…** to inspect the retained history in a native window.
 
 ## Preset fan modes
 
@@ -60,37 +60,37 @@ The paired-wave animation sends a left mote followed by a right mote after 0.45 
 | Automatic updates | Sparkle 2 + EdDSA-signed notarized DMG |
 | Build and tests | Swift 6 + Swift Package Manager |
 
-Hot Goal for Mac is distributed directly because exact AppleSMC temperature readings and privileged fan control are not available through public sandboxed macOS APIs.
+Hot Goal is distributed directly because exact AppleSMC temperature readings and privileged fan control are not available through public sandboxed macOS APIs.
 
 ## Install and enable fan control
 
-Download the latest signed DMG from [GitHub Releases](https://github.com/kargnas/hot-goal-for-mac/releases/latest). Hot Goal for Mac requires macOS 14 or later.
+Download the latest signed DMG from [GitHub Releases](https://github.com/kargnas/hot-goal/releases/latest). Hot Goal requires macOS 14 or later.
 
-1. Open the DMG and drag **Hot Goal for Mac.app** into **Applications**.
+1. Open the DMG and drag **Hot Goal.app** into **Applications**.
 2. Quit other fan-control applications.
 3. Choose **Maintain Target Temperature → Enable Fan Control…**.
-4. Approve **Hot Goal for Mac.app** in **System Settings → General → Login Items & Extensions**. Hot Goal for Mac opens that pane for you and floats a chip under the window showing which switch to turn on; the chip disappears on its own once the approval lands.
-5. Hot Goal for Mac starts holding 60 °C as soon as the approval lands and confirms it in the same chip. Pick a different target under **Maintain Target Temperature** at any time.
+4. Approve **Hot Goal.app** in **System Settings → General → Login Items & Extensions**. Hot Goal opens that pane for you and floats a chip under the window showing which switch to turn on; the chip disappears on its own once the approval lands.
+5. Hot Goal starts holding 60 °C as soon as the approval lands and confirms it in the same chip. Pick a different target under **Maintain Target Temperature** at any time.
 
 ### If target temperatures do not take effect
 
 Quit other fan-control applications, then check the helper state:
 
 ```bash
-"/Applications/Hot Goal for Mac.app/Contents/MacOS/hot-goal-for-mac" --helper-status
+"/Applications/Hot Goal.app/Contents/MacOS/hot-goal" --helper-status
 ```
 
 If it reports `not registered` or `not found`, request registration directly:
 
 ```bash
-"/Applications/Hot Goal for Mac.app/Contents/MacOS/hot-goal-for-mac" --register-helper
+"/Applications/Hot Goal.app/Contents/MacOS/hot-goal" --register-helper
 ```
 
-`Operation not permitted` followed by `approval required` means registration is waiting for user approval. Enable **Hot Goal for Mac.app** in **System Settings → General → Login Items & Extensions**, then run `--helper-status` again. `Fan helper: enabled` is the ready state. While target-temperature control is active, `--print-fans` reports manual mode and `~/Library/Logs/hot-goal-for-mac/` receives one CSV sample per second.
+`Operation not permitted` followed by `approval required` means registration is waiting for user approval. Enable **Hot Goal.app** in **System Settings → General → Login Items & Extensions**, then run `--helper-status` again. `Fan helper: enabled` is the ready state. While target-temperature control is active, `--print-fans` reports manual mode and `~/Library/Logs/hot-goal/` receives one CSV sample per second.
 
 ## Automatic updates
 
-Release builds check for updates once per day through Sparkle. A downloaded update is verified with Hot Goal for Mac's EdDSA key and installed when the app quits. Choose **Check for Updates…** in the status menu to run a manual check at any time.
+Release builds check for updates once per day through Sparkle. A downloaded update is verified with Hot Goal's EdDSA key and installed when the app quits. Choose **Check for Updates…** in the status menu to run a manual check at any time.
 
 Development bundles keep automatic checks and installation disabled so a local build is never replaced by a release build. Manual checks remain available in bundled development builds.
 
@@ -100,18 +100,18 @@ Development bundles keep automatic checks and installation disabled so a local b
 2. Before deleting the app, unregister its helper:
 
    ```bash
-   "/Applications/Hot Goal for Mac.app/Contents/MacOS/hot-goal-for-mac" --unregister-helper
+   "/Applications/Hot Goal.app/Contents/MacOS/hot-goal" --unregister-helper
    ```
 
-   If Hot Goal for Mac is installed elsewhere, replace `/Applications/Hot Goal for Mac.app` with its actual path.
-3. Quit Hot Goal for Mac and remove **Hot Goal for Mac.app**.
-4. Delete `~/Library/Logs/hot-goal-for-mac/` to remove retained CSV history. To clear display preferences too, remove `~/Library/Preferences/as.kargn.hotgoalformac.plist`.
+   If Hot Goal is installed elsewhere, replace `/Applications/Hot Goal.app` with its actual path.
+3. Quit Hot Goal and remove **Hot Goal.app**.
+4. Delete `~/Library/Logs/hot-goal/` to remove retained CSV history. To clear display preferences too, remove `~/Library/Preferences/as.kargn.hotgoal.plist`.
 
 ## Build locally
 
 ```bash
-git clone https://github.com/kargnas/hot-goal-for-mac.git
-cd hot-goal-for-mac
+git clone https://github.com/kargnas/hot-goal.git
+cd hot-goal
 ./script/build_and_run.sh --verify
 ```
 

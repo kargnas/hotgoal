@@ -5,40 +5,40 @@
       "request": "launch",
       "args": [],
       "cwd": "${workspaceFolder}",
-      "name": "Debug hot-goal-for-mac",
-      "target": "hot-goal-for-mac",
+      "name": "Debug hot-goal",
+      "target": "hot-goal",
       "configuration": "debug",
-      "preLaunchTask": "swift: Build Debug hot-goal-for-mac"
+      "preLaunchTask": "swift: Build Debug hot-goal"
     },
     {
       "type": "swift",
       "request": "launch",
       "args": [],
       "cwd": "${workspaceFolder}",
-      "name": "Release hot-goal-for-mac",
-      "target": "hot-goal-for-mac",
+      "name": "Release hot-goal",
+      "target": "hot-goal",
       "configuration": "release",
-      "preLaunchTask": "swift: Build Release hot-goal-for-mac"
+      "preLaunchTask": "swift: Build Release hot-goal"
     },
     {
       "type": "swift",
       "request": "launch",
       "args": [],
       "cwd": "${workspaceFolder}",
-      "name": "Debug hot-goal-for-mac-helper",
-      "target": "hot-goal-for-mac-helper",
+      "name": "Debug hot-goal-helper",
+      "target": "hot-goal-helper",
       "configuration": "debug",
-      "preLaunchTask": "swift: Build Debug hot-goal-for-mac-helper"
+      "preLaunchTask": "swift: Build Debug hot-goal-helper"
     },
     {
       "type": "swift",
       "request": "launch",
       "args": [],
       "cwd": "${workspaceFolder}",
-      "name": "Release hot-goal-for-mac-helper",
-      "target": "hot-goal-for-mac-helper",
+      "name": "Release hot-goal-helper",
+      "target": "hot-goal-helper",
       "configuration": "release",
-      "preLaunchTask": "swift: Build Release hot-goal-for-mac-helper"
+      "preLaunchTask": "swift: Build Release hot-goal-helper"
     }
   ]
 }

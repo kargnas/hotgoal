@@ -27,29 +27,29 @@ require_path() {
 }
 
 require_text README.md '# Hot Goal for Mac'
-require_text README.md 'https://github.com/kargnas/hot-goal-for-mac/releases/latest'
-require_text README.md '~/Library/Logs/hot-goal-for-mac/'
-require_text README.md '/Applications/Hot Goal for Mac.app/Contents/MacOS/hot-goal-for-mac'
-require_text README.md '~/Library/Preferences/as.kargn.hotgoalformac.plist'
-require_text README.md 'git clone https://github.com/kargnas/hot-goal-for-mac.git'
+require_text README.md 'https://github.com/kargnas/hot-goal/releases/latest'
+require_text README.md '~/Library/Logs/hot-goal/'
+require_text README.md '/Applications/Hot Goal.app/Contents/MacOS/hot-goal'
+require_text README.md '~/Library/Preferences/as.kargn.hotgoal.plist'
+require_text README.md 'git clone https://github.com/kargnas/hot-goal.git'
 
-require_text docs/direct-release.md 'Hot Goal for Mac releases'
-require_text docs/direct-release.md 'REPO=kargnas/hot-goal-for-mac'
-require_text docs/direct-release.md 'Hot-Goal-for-Mac-<version>.dmg'
-require_text docs/direct-release.md 'hot-goal-for-mac-sparkle-key'
+require_text docs/direct-release.md 'Hot Goal releases'
+require_text docs/direct-release.md 'REPO=kargnas/hot-goal'
+require_text docs/direct-release.md 'Hot-Goal-<version>.dmg'
+require_text docs/direct-release.md 'hot-goal-sparkle-key'
 
-require_text .vscode/launch.json '"target": "hot-goal-for-mac"'
-require_text .vscode/launch.json '"target": "hot-goal-for-mac-helper"'
-require_text .vscode/launch.json '"name": "Debug hot-goal-for-mac"'
-require_text .vscode/launch.json '"name": "Release hot-goal-for-mac-helper"'
-require_text .codex/environments/environment.toml 'name = "hot-goal-for-mac"'
+require_text .vscode/launch.json '"target": "hot-goal"'
+require_text .vscode/launch.json '"target": "hot-goal-helper"'
+require_text .vscode/launch.json '"name": "Debug hot-goal"'
+require_text .vscode/launch.json '"name": "Release hot-goal-helper"'
+require_text .codex/environments/environment.toml 'name = "hot-goal"'
 
-require_path Sources/HotGoalForMac/HotGoalForMacApp.swift
-require_path Sources/HotGoalForMacCore/FanControlModels.swift
-require_path Sources/HotGoalForMacHelper/main.swift
-require_text Package.swift 'name: "HotGoalForMac"'
-require_text Sources/HotGoalForMacCore/FanControlModels.swift 'as.kargn.hotgoalformac'
-require_text Sources/HotGoalForMacHelper/main.swift 'hot-goal-for-mac-helper'
+require_path Sources/HotGoal/HotGoalApp.swift
+require_path Sources/HotGoalCore/FanControlModels.swift
+require_path Sources/HotGoalHelper/main.swift
+require_text Package.swift 'name: "hot-goal"'
+require_text Sources/HotGoalCore/FanControlModels.swift 'as.kargn.hotgoal'
+require_text Sources/HotGoalHelper/main.swift 'hot-goal-helper'
 
 if (( failures > 0 )); then
   printf 'Branding configuration check failed with %d issue(s).\n' "$failures"
