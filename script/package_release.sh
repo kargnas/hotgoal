@@ -1,16 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
-APP_NAME="hottarget"
-APP_DISPLAY_NAME="Hot Target"
-BUNDLE_ID="as.kargn.hottarget"
-HELPER_NAME="hottarget-helper"
-HELPER_ID="as.kargn.hottarget.helper"
+APP_NAME="hot-goal-for-mac"
+APP_DISPLAY_NAME="Hot Goal for Mac"
+BUNDLE_ID="as.kargn.hotgoalformac"
+HELPER_NAME="hot-goal-for-mac-helper"
+HELPER_ID="as.kargn.hotgoalformac.helper"
 HELPER_PLIST_NAME="$HELPER_ID.plist"
-ICON_NAME="HotTarget"
+ICON_NAME="HotGoalForMac"
 MIN_SYSTEM_VERSION="14.0"
 SPARKLE_PUBLIC_KEY="6skMx+nj9R6w4kS1Ct4GAi+z01EaSaZnEbnZ20QJcqo="
-SPARKLE_FEED_URL="https://github.com/kargnas/hottarget/releases/latest/download/appcast.xml"
+SPARKLE_FEED_URL="https://github.com/kargnas/hot-goal-for-mac/releases/latest/download/appcast.xml"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${VERSION:-}"
@@ -42,7 +42,7 @@ for binary in "$BUILD_BINARY" "$BUILD_HELPER"; do
   [[ " $archs " == *" arm64 "* && " $archs " == *" x86_64 "* ]] || fail "binary is not universal: $binary ($archs)"
 done
 
-STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/hottarget-release.XXXXXX")"
+STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/hot-goal-for-mac-release.XXXXXX")"
 cleanup() {
   rm -rf "$STAGING_DIR"
 }
@@ -59,7 +59,7 @@ SPARKLE_FRAMEWORK="$APP_FRAMEWORKS/Sparkle.framework"
 HELPER_BINARY="$APP_RESOURCES/$HELPER_NAME"
 HELPER_PLIST="$APP_LAUNCH_DAEMONS/$HELPER_PLIST_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
-ARCHIVE_NAME="Hot-Target-$VERSION.zip"
+ARCHIVE_NAME="Hot-Goal-for-Mac-$VERSION.zip"
 ARCHIVE="$STAGING_DIR/$ARCHIVE_NAME"
 
 mkdir -p "$APP_MACOS" "$APP_RESOURCES" "$APP_FRAMEWORKS" "$APP_LAUNCH_DAEMONS"

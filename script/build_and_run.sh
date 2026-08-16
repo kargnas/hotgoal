@@ -2,16 +2,16 @@
 set -euo pipefail
 
 MODE="${1:-run}"
-APP_NAME="hottarget"
-APP_DISPLAY_NAME="Hot Target"
-BUNDLE_ID="as.kargn.hottarget"
-HELPER_NAME="hottarget-helper"
-HELPER_ID="as.kargn.hottarget.helper"
+APP_NAME="hot-goal-for-mac"
+APP_DISPLAY_NAME="Hot Goal for Mac"
+BUNDLE_ID="as.kargn.hotgoalformac"
+HELPER_NAME="hot-goal-for-mac-helper"
+HELPER_ID="as.kargn.hotgoalformac.helper"
 HELPER_PLIST_NAME="$HELPER_ID.plist"
-ICON_NAME="HotTarget"
+ICON_NAME="HotGoalForMac"
 MIN_SYSTEM_VERSION="14.0"
 SPARKLE_PUBLIC_KEY="6skMx+nj9R6w4kS1Ct4GAi+z01EaSaZnEbnZ20QJcqo="
-SPARKLE_FEED_URL="https://github.com/kargnas/hottarget/releases/latest/download/appcast.xml"
+SPARKLE_FEED_URL="https://github.com/kargnas/hot-goal-for-mac/releases/latest/download/appcast.xml"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
@@ -38,7 +38,7 @@ if [[ -z "$SIGNING_IDENTITY" ]]; then
 fi
 
 mkdir -p "$DIST_DIR"
-STAGING_DIR="$(mktemp -d "$DIST_DIR/.hottarget.XXXXXX")"
+STAGING_DIR="$(mktemp -d "$DIST_DIR/.hot-goal-for-mac.XXXXXX")"
 STAGING_APP_BUNDLE="$STAGING_DIR/$APP_DISPLAY_NAME.app"
 STAGING_APP_CONTENTS="$STAGING_APP_BUNDLE/Contents"
 STAGING_APP_MACOS="$STAGING_APP_CONTENTS/MacOS"
