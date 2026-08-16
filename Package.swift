@@ -11,6 +11,7 @@ let package = Package(
         .executable(name: "hottarget", targets: ["HotTarget"]),
         .executable(name: "hottarget-helper", targets: ["HotTargetHelper"]),
         .executable(name: "hot-goal-for-mac", targets: ["HotGoalForMac"]),
+        .executable(name: "hot-goal-for-mac-helper", targets: ["HotGoalForMacHelper"]),
     ],
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.8.1"),
@@ -45,6 +46,10 @@ let package = Package(
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
             linkerSettings: [.linkedFramework("ServiceManagement")]
+        ),
+        .executableTarget(
+            name: "HotGoalForMacHelper",
+            dependencies: ["HotGoalForMacCore"]
         ),
         .executableTarget(
             name: "HotTargetHelper",
