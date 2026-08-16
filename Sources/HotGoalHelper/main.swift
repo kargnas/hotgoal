@@ -60,13 +60,13 @@ private final class FanService: @unchecked Sendable {
             do {
                 try reconcileLocked(control)
             } catch {
-                NSLog("hot-goal-helper fan control failed: \(error)")
+                NSLog("hotgoal-helper fan control failed: \(error)")
                 activeControl = nil
                 cancelControlTimerLocked()
                 do {
                     try reader.restoreAutomatic()
                 } catch {
-                    NSLog("hot-goal-helper automatic reset failed: \(error)")
+                    NSLog("hotgoal-helper automatic reset failed: \(error)")
                 }
             }
         }
@@ -198,13 +198,13 @@ private final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
         let shouldRestore = connections.isEmpty
         lock.unlock()
         if shouldRestore, case let .failure(error) = fanService.restoreAutomatic() {
-        NSLog("hot-goal-helper disconnect reset failed: \(error)")
+        NSLog("hotgoal-helper disconnect reset failed: \(error)")
         }
     }
 }
 
 guard geteuid() == 0 else {
-    NSLog("hot-goal-helper must run as root")
+    NSLog("hotgoal-helper must run as root")
     exit(77)
 }
 
@@ -212,13 +212,13 @@ let reader: SMCReader
 do {
     reader = try SMCReader()
 } catch {
-    NSLog("hot-goal-helper cannot open AppleSMC: \(error)")
+    NSLog("hotgoal-helper cannot open AppleSMC: \(error)")
     exit(78)
 }
 
 private let fanService = FanService(reader: reader)
 if case let .failure(error) = fanService.restoreAutomatic() {
-    NSLog("hot-goal-helper startup reset failed: \(error)")
+    NSLog("hotgoal-helper startup reset failed: \(error)")
 }
 private let exportedService = ExportedFanService(service: fanService)
 private let delegate = ListenerDelegate(exportedService: exportedService, fanService: fanService)
@@ -232,7 +232,7 @@ do {
     ).text
     listener.setConnectionCodeSigningRequirement(requirement)
 } catch {
-    NSLog("hot-goal-helper cannot establish signed client requirement: \(error)")
+    NSLog("hotgoal-helper cannot establish signed client requirement: \(error)")
     exit(78)
 }
 
