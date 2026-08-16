@@ -27,29 +27,29 @@ require_path() {
 }
 
 require_text README.md '# Hot Goal for Mac'
-require_text README.md 'https://github.com/kargnas/hot-goal/releases/latest'
-require_text README.md '~/Library/Logs/hot-goal/'
-require_text README.md '/Applications/Hot Goal.app/Contents/MacOS/hot-goal'
+require_text README.md 'https://github.com/kargnas/hotgoal/releases/latest'
+require_text README.md '~/Library/Logs/hotgoal/'
+require_text README.md '/Applications/Hot Goal.app/Contents/MacOS/hotgoal'
 require_text README.md '~/Library/Preferences/as.kargn.hotgoal.plist'
-require_text README.md 'git clone https://github.com/kargnas/hot-goal.git'
+require_text README.md 'git clone https://github.com/kargnas/hotgoal.git'
 
 require_text docs/direct-release.md 'Hot Goal releases'
-require_text docs/direct-release.md 'REPO=kargnas/hot-goal'
-require_text docs/direct-release.md 'Hot-Goal-<version>.dmg'
-require_text docs/direct-release.md 'hot-goal-sparkle-key'
+require_text docs/direct-release.md 'REPO=kargnas/hotgoal'
+require_text docs/direct-release.md 'HotGoal-<version>.dmg'
+require_text docs/direct-release.md 'hotgoal-sparkle-key'
 
-require_text .vscode/launch.json '"target": "hot-goal"'
-require_text .vscode/launch.json '"target": "hot-goal-helper"'
-require_text .vscode/launch.json '"name": "Debug hot-goal"'
-require_text .vscode/launch.json '"name": "Release hot-goal-helper"'
-require_text .codex/environments/environment.toml 'name = "hot-goal"'
+require_text .vscode/launch.json '"target": "hotgoal"'
+require_text .vscode/launch.json '"target": "hotgoal-helper"'
+require_text .vscode/launch.json '"name": "Debug hotgoal"'
+require_text .vscode/launch.json '"name": "Release hotgoal-helper"'
+require_text .codex/environments/environment.toml 'name = "hotgoal"'
 
 require_path Sources/HotGoal/HotGoalApp.swift
 require_path Sources/HotGoalCore/FanControlModels.swift
 require_path Sources/HotGoalHelper/main.swift
-require_text Package.swift 'name: "hot-goal"'
+require_text Package.swift 'name: "hotgoal"'
 require_text Sources/HotGoalCore/FanControlModels.swift 'as.kargn.hotgoal'
-require_text Sources/HotGoalHelper/main.swift 'hot-goal-helper'
+require_text Sources/HotGoalHelper/main.swift 'hotgoal-helper'
 
 if (( failures > 0 )); then
   printf 'Branding configuration check failed with %d issue(s).\n' "$failures"
