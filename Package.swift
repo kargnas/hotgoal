@@ -56,5 +56,6 @@ let package = Package(
             dependencies: ["HotTargetCore"]
         ),
         .testTarget(name: "HotTargetTests", dependencies: ["HotTargetCore"]),
+        .testTarget(name: "HotGoalForMacTests", dependencies: ["HotGoalForMacCore"]),
     ]
 )
