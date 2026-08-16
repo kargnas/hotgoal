@@ -3,13 +3,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "hottarget",
+    name: "hot-goal-for-mac",
     platforms: [
         .macOS(.v14),
     ],
     products: [
-        .executable(name: "hottarget", targets: ["HotTarget"]),
-        .executable(name: "hottarget-helper", targets: ["HotTargetHelper"]),
         .executable(name: "hot-goal-for-mac", targets: ["HotGoalForMac"]),
         .executable(name: "hot-goal-for-mac-helper", targets: ["HotGoalForMacHelper"]),
     ],
@@ -17,13 +15,6 @@ let package = Package(
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.8.1"),
     ],
     targets: [
-        .target(
-            name: "HotTargetCore",
-            linkerSettings: [
-                .linkedFramework("IOKit"),
-                .linkedFramework("Security"),
-            ]
-        ),
         .target(
             name: "HotGoalForMacCore",
             linkerSettings: [
@@ -40,22 +31,9 @@ let package = Package(
             linkerSettings: [.linkedFramework("ServiceManagement")]
         ),
         .executableTarget(
-            name: "HotTarget",
-            dependencies: [
-                "HotTargetCore",
-                .product(name: "Sparkle", package: "Sparkle"),
-            ],
-            linkerSettings: [.linkedFramework("ServiceManagement")]
-        ),
-        .executableTarget(
             name: "HotGoalForMacHelper",
             dependencies: ["HotGoalForMacCore"]
         ),
-        .executableTarget(
-            name: "HotTargetHelper",
-            dependencies: ["HotTargetCore"]
-        ),
-        .testTarget(name: "HotTargetTests", dependencies: ["HotTargetCore"]),
         .testTarget(name: "HotGoalForMacTests", dependencies: ["HotGoalForMacCore"]),
     ]
 )
