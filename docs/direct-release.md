@@ -45,14 +45,14 @@ The Apple Team ID (`6YQH3QFFK8`), API key ID, issuer ID, certificate name, and S
      --issuer "$NOTARYTOOL_ISSUER_ID"
    ```
 
-4. Copy the deployed Sparkle seed from its secure backup to `$TMPDIR/hot-goal-sparkle-key`. The workflow derives its public key and fails before publishing if it does not match the `SUPublicEDKey` embedded by the bundle scripts.
+4. Copy the deployed Sparkle seed from its secure backup to `$TMPDIR/hotgoal-sparkle-key`. The workflow derives its public key and fails before publishing if it does not match the `SUPublicEDKey` embedded by the bundle scripts.
 
 ## Upload secrets
 
 Write values through stdin so they do not appear in command history:
 
 ```bash
-REPO=kargnas/hot-goal
+REPO=kargnas/hotgoal
 ENVIRONMENT=direct-release
 
 base64 -i DeveloperIDApplication.p12 | \
@@ -69,16 +69,16 @@ printf '%s' "$NOTARYTOOL_KEY_ID" | \
 printf '%s' "$NOTARYTOOL_ISSUER_ID" | \
   gh secret set NOTARYTOOL_ISSUER_ID --env "$ENVIRONMENT" --repo "$REPO"
 
-cat "$TMPDIR/hot-goal-sparkle-key" | \
+cat "$TMPDIR/hotgoal-sparkle-key" | \
   gh secret set SPARKLE_PRIVATE_KEY --env "$ENVIRONMENT" --repo "$REPO"
 ```
 
 Delete every export after names-only verification:
 
 ```bash
-gh secret list --env direct-release --repo kargnas/hot-goal
+gh secret list --env direct-release --repo kargnas/hotgoal
 rm -f DeveloperIDApplication.p12 DeveloperIDApplication.password AuthKey.p8 \
-  "$TMPDIR/hot-goal-sparkle-key"
+  "$TMPDIR/hotgoal-sparkle-key"
 ```
 
 ## Publish releases
@@ -95,7 +95,7 @@ git push origin v1.8.3
 Run a manual bump from GitHub or with `gh`:
 
 ```bash
-gh workflow run release-direct.yml --repo kargnas/hot-goal -f bump=minor
+gh workflow run release-direct.yml --repo kargnas/hotgoal -f bump=minor
 ```
 
 The first automatic release falls back from the existing app version 1.8.2 to v1.8.3 when no prior semantic-version tag exists. Later releases use the highest strict semantic-version tag. `CFBundleVersion` and appcast `sparkle:version` use the same monotonic numeric build value.
@@ -103,23 +103,23 @@ The first automatic release falls back from the existing app version 1.8.2 to v1
 After completion, verify workflow and release metadata:
 
 ```bash
-gh run list --workflow release-direct.yml --repo kargnas/hot-goal
-gh release view v1.8.3 --repo kargnas/hot-goal
-curl -fsSL https://github.com/kargnas/hot-goal/releases/latest/download/appcast.xml
+gh run list --workflow release-direct.yml --repo kargnas/hotgoal
+gh release view v1.8.3 --repo kargnas/hotgoal
+curl -fsSL https://github.com/kargnas/hotgoal/releases/latest/download/appcast.xml
 ```
 
 Release assets are:
 
-- `Hot-Goal-<version>.dmg`
-- `Hot-Goal-<version>.dmg.sha256`
+- `HotGoal-<version>.dmg`
+- `HotGoal-<version>.dmg.sha256`
 - `appcast.xml`
 
 ## End-to-end verification
 
 ```bash
-curl -fsSLO https://github.com/kargnas/hot-goal/releases/latest/download/Hot-Goal-1.8.3.dmg
-spctl -a -t open --context context:primary-signature -v Hot-Goal-1.8.3.dmg
-xcrun stapler validate Hot-Goal-1.8.3.dmg
+curl -fsSLO https://github.com/kargnas/hotgoal/releases/latest/download/HotGoal-1.8.3.dmg
+spctl -a -t open --context context:primary-signature -v HotGoal-1.8.3.dmg
+xcrun stapler validate HotGoal-1.8.3.dmg
 /usr/bin/log show --last 3m \
   --predicate 'subsystem == "org.sparkle-project.Sparkle"' \
   --style compact
