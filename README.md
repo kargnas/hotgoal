@@ -2,14 +2,14 @@
 
 Native macOS menu-bar utility that automatically adjusts fan speed to maintain a temperature you choose.
 
-[**Download the latest direct release →**](https://github.com/kargnas/hot-goal/releases/latest)
+[**Download the latest direct release →**](https://github.com/kargnas/hotgoal/releases/latest)
 
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111827?logo=apple)](https://www.apple.com/macos/)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](Package.swift)
 [![GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-2563eb)](LICENSE)
 
 <p align="center">
-  <img height="300" alt="Hot Goal target-temperature control" src="docs/hot-goal.gif" />
+  <img height="300" alt="Hot Goal target-temperature control" src="docs/hotgoal.gif" />
 </p>
 
 ## Maintain a target temperature
@@ -26,7 +26,7 @@ The feedback loop changes fan speed gradually instead of jumping straight betwee
 
 The signed privileged helper remains the source of truth and reapplies manual fan targets after sleep or an SMC reset. Quitting the app or losing the helper connection restores Apple automatic control. Hot Goal remembers your last selection and reapplies it automatically on the next launch; after choosing **System Default**, launches leave macOS in control.
 
-While target-temperature control is active, Hot Goal writes `timestamp,target_celsius,actual_celsius` once per second to daily CSV files in `~/Library/Logs/hot-goal/`. Files whose last sample is older than 72 hours are deleted automatically. Choose **Temperature Log…** to inspect the retained history in a native window.
+While target-temperature control is active, Hot Goal writes `timestamp,target_celsius,actual_celsius` once per second to daily CSV files in `~/Library/Logs/hotgoal/`. Files whose last sample is older than 72 hours are deleted automatically. Choose **Temperature Log…** to inspect the retained history in a native window.
 
 ## Preset fan modes
 
@@ -64,7 +64,7 @@ Hot Goal is distributed directly because exact AppleSMC temperature readings and
 
 ## Install and enable fan control
 
-Download the latest signed DMG from [GitHub Releases](https://github.com/kargnas/hot-goal/releases/latest). Hot Goal requires macOS 14 or later.
+Download the latest signed DMG from [GitHub Releases](https://github.com/kargnas/hotgoal/releases/latest). Hot Goal requires macOS 14 or later.
 
 1. Open the DMG and drag **Hot Goal.app** into **Applications**.
 2. Quit other fan-control applications.
@@ -77,16 +77,16 @@ Download the latest signed DMG from [GitHub Releases](https://github.com/kargnas
 Quit other fan-control applications, then check the helper state:
 
 ```bash
-"/Applications/Hot Goal.app/Contents/MacOS/hot-goal" --helper-status
+"/Applications/Hot Goal.app/Contents/MacOS/hotgoal" --helper-status
 ```
 
 If it reports `not registered` or `not found`, request registration directly:
 
 ```bash
-"/Applications/Hot Goal.app/Contents/MacOS/hot-goal" --register-helper
+"/Applications/Hot Goal.app/Contents/MacOS/hotgoal" --register-helper
 ```
 
-`Operation not permitted` followed by `approval required` means registration is waiting for user approval. Enable **Hot Goal.app** in **System Settings → General → Login Items & Extensions**, then run `--helper-status` again. `Fan helper: enabled` is the ready state. While target-temperature control is active, `--print-fans` reports manual mode and `~/Library/Logs/hot-goal/` receives one CSV sample per second.
+`Operation not permitted` followed by `approval required` means registration is waiting for user approval. Enable **Hot Goal.app** in **System Settings → General → Login Items & Extensions**, then run `--helper-status` again. `Fan helper: enabled` is the ready state. While target-temperature control is active, `--print-fans` reports manual mode and `~/Library/Logs/hotgoal/` receives one CSV sample per second.
 
 ## Automatic updates
 
@@ -100,18 +100,18 @@ Development bundles keep automatic checks and installation disabled so a local b
 2. Before deleting the app, unregister its helper:
 
    ```bash
-   "/Applications/Hot Goal.app/Contents/MacOS/hot-goal" --unregister-helper
+   "/Applications/Hot Goal.app/Contents/MacOS/hotgoal" --unregister-helper
    ```
 
    If Hot Goal is installed elsewhere, replace `/Applications/Hot Goal.app` with its actual path.
 3. Quit Hot Goal and remove **Hot Goal.app**.
-4. Delete `~/Library/Logs/hot-goal/` to remove retained CSV history. To clear display preferences too, remove `~/Library/Preferences/as.kargn.hotgoal.plist`.
+4. Delete `~/Library/Logs/hotgoal/` to remove retained CSV history. To clear display preferences too, remove `~/Library/Preferences/as.kargn.hotgoal.plist`.
 
 ## Build locally
 
 ```bash
-git clone https://github.com/kargnas/hot-goal.git
-cd hot-goal
+git clone https://github.com/kargnas/hotgoal.git
+cd hotgoal
 ./script/build_and_run.sh --verify
 ```
 
