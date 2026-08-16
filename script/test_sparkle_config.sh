@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PACKAGE="$ROOT_DIR/Package.swift"
-APP_DELEGATE="$ROOT_DIR/Sources/HotTarget/AppDelegate.swift"
+APP_DELEGATE="$ROOT_DIR/Sources/HotGoalForMac/AppDelegate.swift"
 PACKAGER="$ROOT_DIR/script/package_release.sh"
 DEV_BUILDER="$ROOT_DIR/script/build_and_run.sh"
 WORKFLOW="$ROOT_DIR/.github/workflows/release-direct.yml"
@@ -38,7 +38,7 @@ for file in "$PACKAGER" "$DEV_BUILDER"; do
   require_text "$file" 'Sparkle.framework'
   require_text "$file" '@executable_path/../Frameworks'
   require_text "$file" 'SUFeedURL'
-  require_text "$file" 'https://github.com/kargnas/hottarget/releases/latest/download/appcast.xml'
+  require_text "$file" 'https://github.com/kargnas/hot-goal-for-mac/releases/latest/download/appcast.xml'
   require_text "$file" 'SUPublicEDKey'
   require_text "$file" 'SUEnableAutomaticChecks'
   require_text "$file" 'SUAutomaticallyUpdate'
@@ -64,8 +64,8 @@ require_text "$WORKFLOW" 'SPARKLE_PRIVATE_KEY does not match SUPublicEDKey'
 require_text "$WORKFLOW" 'sparkle:minimumSystemVersion'
 require_text "$WORKFLOW" 'git fetch --force origin'
 require_text "$WORKFLOW" 'appcast.xml'
-require_text "$WORKFLOW" "Hot-Target-\$VERSION.dmg"
-require_text "$WORKFLOW" "releases/download/\$TAG/Hot-Target-\$VERSION.dmg"
+require_text "$WORKFLOW" "Hot-Goal-for-Mac-\$VERSION.dmg"
+require_text "$WORKFLOW" "releases/download/\$TAG/Hot-Goal-for-Mac-\$VERSION.dmg"
 
 if grep -Fq -- 'codesign --deep' "$PACKAGER"; then
   fail "package_release.sh must not use codesign --deep for signing"
