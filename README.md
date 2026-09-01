@@ -44,7 +44,7 @@ Quiet mode is unconditional: it always holds the hardware minimum and never reac
 
 | Screen | What it does |
 |---|---|
-| <img src="docs/menu-bar-combined.png" width="254" alt="Thermometer and exact CPU temperature in the macOS menu bar"> | Shows the animated thermometer and exact CPU temperature together. |
+| <img src="docs/menu-bar-combined.png" width="254" alt="Thermometer and smoothed CPU temperature in the macOS menu bar"> | Shows the animated thermometer and a smoothed CPU temperature together. Raw samples remain available in the temperature log. |
 | <img src="docs/menu-bar-icon.png" width="350" alt="Thermometer-only menu-bar mode"> | Keeps the menu bar compact while color and mercury level carry the thermal state. |
 | <img src="docs/fan-status.png" width="400" alt="Live fan RPM values"> | Reports the current speed of every detected fan. |
 
