@@ -5,6 +5,22 @@ public enum DisplayMode: String {
     case number
 }
 
+public struct TemperatureSmoother: Sendable {
+    private var value: Double?
+
+    public init() {}
+
+    public mutating func update(_ sample: Double?) -> Double? {
+        guard let sample, sample.isFinite else {
+            value = nil
+            return nil
+        }
+        // Sensor subsets change as cores wake, so ease display-only updates without delaying fan safety.
+        value = value.map { $0 + (sample - $0) * 0.1 } ?? sample
+        return value
+    }
+}
+
 public struct ThermalColor: Equatable, Sendable {
     public let red: Double
     public let green: Double

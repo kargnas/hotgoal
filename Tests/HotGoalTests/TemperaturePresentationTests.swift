@@ -2,6 +2,15 @@ import XCTest
 @testable import HotGoalCore
 
 final class TemperaturePresentationTests: XCTestCase {
+    func testTemperatureSmootherDampsSpikesAndResetsAfterUnavailableReading() {
+        var smoother = TemperatureSmoother()
+
+        XCTAssertEqual(smoother.update(72)!, 72, accuracy: 0.001)
+        XCTAssertEqual(smoother.update(82)!, 73, accuracy: 0.001)
+        XCTAssertNil(smoother.update(nil))
+        XCTAssertEqual(smoother.update(80)!, 80, accuracy: 0.001)
+    }
+
     func testFirstRunTargetAppliesOnceOnTheApprovalEdge() {
         // A launch that already has an approved helper is not a fresh approval.
         XCTAssertFalse(FirstRunTarget.approvalJustLanded(previous: nil, isEnabled: true))

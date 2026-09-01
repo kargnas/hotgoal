@@ -31,6 +31,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var temperatureLogWindow = TemperatureLogWindowController(log: temperatureLog)
     private var refreshTimer: Timer?
     private var temperature: Double?
+    private var displayTemperature: Double?
+    private var temperatureSmoother = TemperatureSmoother()
     private var fans: [FanSnapshot] = []
     private var hasControllerConflict = false
     private var displayMode: DisplayMode
@@ -237,6 +239,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func refresh() {
         temperature = reader?.cpuAverageTemperature()
+        displayTemperature = temperatureSmoother.update(temperature)
         updateStatusItem()
         refreshFans()
     }
@@ -417,7 +420,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateStatusItem() {
         guard let button = statusItem.button else { return }
-        guard let temperature else {
+        guard let temperature = displayTemperature else {
             temperatureItem.title = "CPU temperature unavailable"
             statusItem.length = displayMode == .icon ? NSStatusItem.squareLength : NSStatusItem.variableLength
             statusView.update(temperature: nil, band: nil)
