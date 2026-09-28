@@ -121,7 +121,7 @@ A local build requires a Developer ID Application or Apple Development signing i
 
 ```text
 $ swift test
-Executed 17 tests, with 0 failures
+Executed 24 tests, with 0 failures
 ```
 
 Licensed under [GPL-3.0-only](LICENSE). MIT notices for Stats, smctl, and MacFanControl remain in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

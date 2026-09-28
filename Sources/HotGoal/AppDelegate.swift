@@ -101,6 +101,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
+        // The menu titles the helper action from this state, so show a fresh one.
+        helperManager.invalidateState()
         refresh()
     }
 
