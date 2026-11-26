@@ -15,6 +15,10 @@ extension SMCReader: FanHardware {}
 
 /// The privileged helper's fan controller and the single authority over the active control.
 public final class FanService: @unchecked Sendable {
+    /// Pause after a failed tick, so a failure that outlasts a sleep transition rewrites the
+    /// SMC and the log every few seconds rather than every second.
+    private static let retryDelay: TimeInterval = 5
+
     private let hardware: FanHardware
     private let lock = NSRecursiveLock()
     private let timerQueue = DispatchQueue(label: "as.kargn.hotgoal.helper.temperature-control")
@@ -51,9 +55,7 @@ public final class FanService: @unchecked Sendable {
     private func applyControlLocked(_ control: FanControl) throws {
         activeControl = nil
         cancelControlTimerLocked()
-        temperatureAverage = TemperatureAverage()
-        criticalGate = CriticalTemperatureGate()
-        stabilizer = FanTargetStabilizer()
+        resetControlStateLocked()
 
         do {
             try reconcileLocked(control)
@@ -74,9 +76,12 @@ public final class FanService: @unchecked Sendable {
             do {
                 try reconcileLocked(control)
             } catch {
-                NSLog("hotgoal-helper fan control failed: \(error)")
-                activeControl = nil
-                cancelControlTimerLocked()
+                // AppleSMC readings can fail briefly around sleep and wake. The control outlives
+                // such a gap: macOS drives the fans meanwhile, and the next readable tick resumes
+                // the user's selection without a new command from the app.
+                NSLog("hotgoal-helper fan control failed, retrying in \(Int(Self.retryDelay)) s: \(error)")
+                resetControlStateLocked()
+                controlTimer?.schedule(deadline: .now() + Self.retryDelay, repeating: 1, leeway: .milliseconds(250))
                 do {
                     try hardware.restoreAutomatic()
                 } catch {
@@ -138,10 +143,17 @@ public final class FanService: @unchecked Sendable {
     private func restoreAutomaticLocked() throws {
         activeControl = nil
         cancelControlTimerLocked()
+        resetControlStateLocked()
+        try hardware.restoreAutomatic()
+    }
+
+    /// Samples and slew history from before an apply, a restore, or a failed tick describe a
+    /// fan state that no longer holds; carrying them over would mix stale readings into the
+    /// next decision.
+    private func resetControlStateLocked() {
         temperatureAverage = TemperatureAverage()
         criticalGate = CriticalTemperatureGate()
         stabilizer = FanTargetStabilizer()
-        try hardware.restoreAutomatic()
     }
 
     private func locked<T>(_ operation: () -> T) -> T {

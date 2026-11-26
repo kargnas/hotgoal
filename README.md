@@ -24,7 +24,7 @@ The feedback loop changes fan speed gradually instead of jumping straight betwee
 - Inside a ±0.5 °C deadband, it holds the current target to avoid fan hunting.
 - At 90 °C on three consecutive one-second samples, it immediately requests the hardware maximum for every fan. Single-sample sensor glitches do not trigger the override.
 
-The signed privileged helper remains the source of truth and reapplies manual fan targets after sleep or an SMC reset. Quitting the app or losing the helper connection restores Apple automatic control. Hot Goal remembers your last selection and reapplies it automatically on the next launch; after choosing **System Default**, launches leave macOS in control.
+The signed privileged helper remains the source of truth and reapplies manual fan targets after sleep or an SMC reset. When temperature or fan readings fail for a moment, as they can while the Mac sleeps or wakes, the helper hands the fans to macOS and resumes your selection on its own once readings return. Quitting the app or losing the helper connection restores Apple automatic control. Hot Goal remembers your last selection and reapplies it automatically on the next launch; after choosing **System Default**, launches leave macOS in control.
 
 While target-temperature control is active, Hot Goal writes `timestamp,target_celsius,actual_celsius` once per second to daily CSV files in `~/Library/Logs/hotgoal/`. Files whose last sample is older than 72 hours are deleted automatically. Choose **Temperature Log…** to inspect the retained history in a native window.
 
@@ -121,7 +121,7 @@ A local build requires a Developer ID Application or Apple Development signing i
 
 ```text
 $ swift test
-Executed 24 tests, with 0 failures
+Executed 25 tests, with 0 failures
 ```
 
 Licensed under [GPL-3.0-only](LICENSE). MIT notices for Stats, smctl, and MacFanControl remain in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
