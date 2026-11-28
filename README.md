@@ -16,13 +16,13 @@ Native macOS menu-bar utility that automatically adjusts fan speed to maintain a
 
 Choose **Maintain Target Temperature** from the menu and select 40–85 °C in 5 °C steps. The privileged helper reads the CPU temperature every second and adjusts each fan's existing SMC target to bring the latest 10-sample average toward your selection.
 
-The feedback loop changes fan speed gradually instead of jumping straight between fixed speeds:
+The feedback loop fades the fans in slowly and quiets them quickly:
 
 - Above the target, it requests 10 additional RPM per degree of error.
-- Below the target, it requests 20 fewer RPM per degree of error.
-- A separate stabilizer bounds subsequent changes to 100 RPM per second upward and 200 RPM per second downward.
+- Below the target, it requests fewer RPM in proportion to the squared error: 10 RPM at 1 °C below, 40 RPM at 2 °C, and 250 RPM at 5 °C. Small steps near the target keep the fans from repeatedly dropping to minimum and spinning back up, and large steps after a load ends slow them down quickly.
+- A separate stabilizer limits how fast the fan noise changes rather than the raw RPM. Using the fan law (noise changes by about 50·log10 of the speed ratio), fans get louder by at most 0.5 dB per second, about a minute from minimum to maximum, and quieter by up to 3 dB per second, about ten seconds back down.
 - Inside a ±0.5 °C deadband, it holds the current target to avoid fan hunting.
-- At 90 °C on three consecutive one-second samples, it immediately requests the hardware maximum for every fan. Single-sample sensor glitches do not trigger the override.
+- At 90 °C on three consecutive one-second samples, it ramps every fan to the hardware maximum at 3 dB per second, about ten seconds from minimum. Single-sample sensor glitches do not trigger the override.
 
 The signed privileged helper remains the source of truth and reapplies manual fan targets after sleep or an SMC reset. When temperature or fan readings fail for a moment, as they can while the Mac sleeps or wakes, the helper hands the fans to macOS and resumes your selection on its own once readings return. Quitting the app or losing the helper connection restores Apple automatic control. Hot Goal remembers your last selection and reapplies it automatically on the next launch; after choosing **System Default**, launches leave macOS in control.
 
@@ -121,7 +121,7 @@ A local build requires a Developer ID Application or Apple Development signing i
 
 ```text
 $ swift test
-Executed 25 tests, with 0 failures
+Executed 27 tests, with 0 failures
 ```
 
 Licensed under [GPL-3.0-only](LICENSE). MIT notices for Stats, smctl, and MacFanControl remain in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

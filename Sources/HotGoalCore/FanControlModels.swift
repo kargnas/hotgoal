@@ -1,6 +1,6 @@
 import Foundation
 
-// Fan hysteresis and asymmetric RPM slew limits are adapted from
+// Fan hysteresis and asymmetric slew limits are adapted from
 // leaperone/smctl (MIT); see THIRD_PARTY_NOTICES.md.
 
 public let fanHelperMachServiceName = "as.kargn.hotgoal.helper"
@@ -116,9 +116,14 @@ public struct FanControlStatus: Codable, Equatable, Sendable {
 
 public enum TargetTemperatureController {
     public static let deadband = 0.5
-    // The helper runs every second; small upward steps avoid sudden acoustic changes.
+    // The helper runs every second; FanTargetStabilizer keeps every rise gradual.
     public static let rpmPerDegreePerCycle = 10.0
-    public static let coolingRPMPerDegreePerCycle = 20.0
+    // Cooling scales with the squared error. Within a degree or two of the target the error is
+    // mostly sensor noise and thermal lag, so small steps (10 RPM at 1 °C, 40 RPM at 2 °C) let the
+    // fans settle instead of dropping to minimum and spinning back up. Once a load ends the CPU
+    // falls several degrees below the target, and larger steps (250 RPM at 5 °C) quiet the fans
+    // quickly.
+    public static let coolingRPMPerSquareDegreePerCycle = 10.0
 
     public static func targets(
         celsius: Double,
@@ -128,8 +133,9 @@ public enum TargetTemperatureController {
         guard celsius.isFinite else { return fans.map(\.maximumRPM) }
         if celsius >= 90 { return fans.map(\.maximumRPM) }
         let error = celsius - target
-        let gain = error < -deadband ? coolingRPMPerDegreePerCycle : rpmPerDegreePerCycle
-        let adjustment = abs(error) <= deadband ? 0 : Int((error * gain).rounded())
+        let adjustment = abs(error) <= deadband ? 0 : Int((error > 0
+            ? error * rpmPerDegreePerCycle
+            : -error * error * coolingRPMPerSquareDegreePerCycle).rounded())
         return fans.map { fan in
             // SMC's last target is the integral state; no second copy can drift out of sync.
             // ponytail: add a derivative term only if measured thermal traces show sustained oscillation.
@@ -188,48 +194,64 @@ public struct TemperatureAverage: Sendable {
 }
 
 public struct FanTargetStabilizer: Sendable {
-    // Falling is faster than rising but remains bounded to prevent abrupt acoustic changes.
-    public static let riseRPMPerSecond = 100.0
-    public static let fallRPMPerSecond = 200.0
+    // Fan noise follows the logarithm of speed (the fan law puts it near 50·log10 of the RPM
+    // ratio, in decibels), so each limit is a fixed number of decibels per second and sounds
+    // equally smooth near minimum and near maximum speed.
+    // Rising takes about a minute from minimum to maximum, so fans fade in under load.
+    // Falling takes about ten seconds, so fans go quiet soon after the heat is gone.
+    public static let riseDecibelsPerSecond = 0.5
+    public static let fallDecibelsPerSecond = 3.0
+    // The 90 °C override drives every fan to maximum at the falling speed, about ten seconds
+    // from minimum, so even the safety response changes the noise by at most 3 dB per second.
+    public static let criticalRiseDecibelsPerSecond = 3.0
+    // Steps scale with the current speed, so a stopped fan ramps as if it already ran this fast.
+    static let rampFloorRPM = 1_000.0
 
     private var previousTargets: [Int]?
     private var previousUpdateTime: TimeInterval?
 
     public init() {}
 
-    public mutating func forceMaximumTargets(
+    public mutating func limitTargets(
+        _ requestedTargets: [Int],
         for fans: [FanSnapshot],
         at time: TimeInterval
     ) -> [Int] {
-        limitTargets(fans.map(\.maximumRPM), at: time, forceImmediate: true)
+        limit(requestedTargets, for: fans, at: time, riseDecibelsPerSecond: Self.riseDecibelsPerSecond)
     }
 
-    public mutating func limitTargets(
-        _ requestedTargets: [Int],
-        at time: TimeInterval,
-        forceImmediate: Bool = false
-    ) -> [Int] {
-        defer {
-            previousUpdateTime = time
-        }
-        guard !forceImmediate,
-              let previousTargets,
-              previousTargets.count == requestedTargets.count,
-              let previousUpdateTime else {
-            previousTargets = requestedTargets
-            return requestedTargets
-        }
+    /// The 90 °C override: heads for every fan's maximum at the faster critical ramp.
+    public mutating func rampToMaximum(for fans: [FanSnapshot], at time: TimeInterval) -> [Int] {
+        limit(
+            fans.map(\.maximumRPM),
+            for: fans,
+            at: time,
+            riseDecibelsPerSecond: Self.criticalRiseDecibelsPerSecond
+        )
+    }
 
+    private mutating func limit(
+        _ requestedTargets: [Int],
+        for fans: [FanSnapshot],
+        at time: TimeInterval,
+        riseDecibelsPerSecond: Double
+    ) -> [Int] {
+        // Without history (control just applied, or resumed after a failed tick), ramp one control
+        // period from the speed the fans run at now, so the first write stays on the ramp too.
+        let startTargets = previousTargets.flatMap { $0.count == requestedTargets.count ? $0 : nil }
+            ?? fans.map(\.currentRPM)
         // A wake or stalled timer must not turn elapsed time into one large RPM jump.
-        let elapsed = min(max(0, time - previousUpdateTime), 2)
-        let limited = zip(previousTargets, requestedTargets).map { previous, requested in
-            let rate = requested > previous ? Self.riseRPMPerSecond : Self.fallRPMPerSecond
-            let maximumChange = Int((rate * elapsed).rounded(.down))
+        let elapsed = previousUpdateTime.map { min(max(0, time - $0), 2) } ?? 1
+        let riseFactor = pow(10, riseDecibelsPerSecond * elapsed / 50) - 1
+        let fallFactor = 1 - pow(10, -Self.fallDecibelsPerSecond * elapsed / 50)
+        let limited = zip(startTargets, requestedTargets).map { previous, requested in
+            let speed = max(Double(previous), Self.rampFloorRPM)
             return requested > previous
-                ? min(requested, previous + maximumChange)
-                : max(requested, previous - maximumChange)
+                ? min(requested, previous + Int(speed * riseFactor))
+                : max(requested, previous - Int(speed * fallFactor))
         }
-        self.previousTargets = limited
+        previousTargets = limited
+        previousUpdateTime = time
         return limited
     }
 }
