@@ -185,7 +185,11 @@ final class TemperaturePresentationTests: XCTestCase {
         XCTAssertEqual(TargetTemperatureController.targets(celsius: 80, target: 70, fans: [fan]), [1_600])
         XCTAssertEqual(TargetTemperatureController.targets(celsius: 80, target: 70, fans: [snapshot(target: 2_000)]), [2_100])
         XCTAssertEqual(TargetTemperatureController.targets(celsius: 70.4, target: 70, fans: [fan]), [1_500])
-        XCTAssertEqual(TargetTemperatureController.targets(celsius: 69, target: 70, fans: [snapshot(target: 3_000)]), [2_980])
+        // Just below the target the fans settle slowly; well below it, as after a load ends,
+        // they shed speed much faster than heating adds it.
+        XCTAssertEqual(TargetTemperatureController.targets(celsius: 69, target: 70, fans: [snapshot(target: 3_000)]), [2_990])
+        XCTAssertEqual(TargetTemperatureController.targets(celsius: 65, target: 70, fans: [snapshot(target: 3_000)]), [2_750])
+        XCTAssertEqual(TargetTemperatureController.targets(celsius: 75, target: 70, fans: [snapshot(target: 3_000)]), [3_050])
         XCTAssertEqual(TargetTemperatureController.targets(celsius: 90, target: 70, fans: [fan]), [6_000])
     }
 
@@ -220,30 +224,51 @@ final class TemperaturePresentationTests: XCTestCase {
         XCTAssertFalse(wakeGate.register(93, at: 10))
     }
 
-    func testFanTargetStabilizerHoldsCoolingAndLimitsRpmChanges() {
-        var stabilizer = FanTargetStabilizer()
+    func testFanTargetStabilizerFadesFansInAndQuietsThemQuickly() {
+        // M4 Max MacBook Pro fan range.
+        func fan(at rpm: Int) -> FanSnapshot {
+            FanSnapshot(index: 0, currentRPM: rpm, minimumRPM: 1_350, maximumRPM: 5_777, targetRPM: rpm, mode: 1)
+        }
+        // Counts one-second control ticks until the limited target reaches the request.
+        func secondsToReach(_ request: Int, from start: Int, critical: Bool = false) -> Int {
+            var stabilizer = FanTargetStabilizer()
+            var target = start
+            var seconds = 0
+            while target != request, seconds < 600 {
+                seconds += 1
+                target = critical
+                    ? stabilizer.rampToMaximum(for: [fan(at: start)], at: Double(seconds))[0]
+                    : stabilizer.limitTargets([request], for: [fan(at: start)], at: Double(seconds))[0]
+            }
+            return seconds
+        }
 
-        XCTAssertEqual(stabilizer.limitTargets([1_500, 1_500], at: 0), [1_500, 1_500])
-        XCTAssertEqual(stabilizer.limitTargets([4_000, 4_000], at: 2), [1_700, 1_700])
-        XCTAssertEqual(stabilizer.limitTargets([1_000, 1_000], at: 3), [1_500, 1_500])
-        XCTAssertEqual(stabilizer.limitTargets([4_000, 4_000], at: 100), [1_700, 1_700])
+        let fadeIn = secondsToReach(5_777, from: 1_350)
+        let quiet = secondsToReach(1_350, from: 5_777)
+        XCTAssert((45...90).contains(fadeIn), "fade-in took \(fadeIn) s")
+        XCTAssert((5...15).contains(quiet), "quieting took \(quiet) s")
+        // The 90 °C override reaches maximum about as fast as fans quiet down, never in one step.
+        let override = secondsToReach(5_777, from: 1_350, critical: true)
+        XCTAssert((5...15).contains(override), "override took \(override) s")
+    }
+
+    func testFanTargetStabilizerNeverJumpsAfterGapsOrFromAStoppedFan() {
+        let fan = FanSnapshot(index: 0, currentRPM: 1_500, minimumRPM: 1_350, maximumRPM: 5_777, targetRPM: 1_500, mode: 1)
+
+        // A wake gap moves the fans no further than two seconds of ramping.
+        var afterGap = FanTargetStabilizer()
+        var afterTwoSeconds = FanTargetStabilizer()
+        _ = afterGap.limitTargets([4_000], for: [fan], at: 0)
+        _ = afterTwoSeconds.limitTargets([4_000], for: [fan], at: 0)
         XCTAssertEqual(
-            stabilizer.limitTargets([5_800, 5_800], at: 3.1, forceImmediate: true),
-            [5_800, 5_800]
+            afterGap.limitTargets([4_000], for: [fan], at: 100),
+            afterTwoSeconds.limitTargets([4_000], for: [fan], at: 2)
         )
 
-        let safetyFan = FanSnapshot(
-            index: 0,
-            currentRPM: 2_000,
-            minimumRPM: 1_500,
-            maximumRPM: 6_000,
-            targetRPM: 2_000,
-            mode: 1
-        )
-        var safetyStabilizer = FanTargetStabilizer()
-        XCTAssertEqual(safetyStabilizer.limitTargets([2_000], at: 0), [2_000])
-        XCTAssertEqual(safetyStabilizer.forceMaximumTargets(for: [safetyFan], at: 1), [6_000])
-        XCTAssertEqual(safetyStabilizer.limitTargets([2_000], at: 2), [5_800])
+        // Speed-proportional steps must still move a fan that reports 0 RPM.
+        let stopped = FanSnapshot(index: 0, currentRPM: 0, minimumRPM: 0, maximumRPM: 5_777, targetRPM: 0, mode: 1)
+        var stabilizer = FanTargetStabilizer()
+        XCTAssertGreaterThan(stabilizer.rampToMaximum(for: [stopped], at: 0)[0], 0)
     }
 
     func testFanSnapshotValidationRejectsUnsafeRanges() {

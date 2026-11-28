@@ -111,8 +111,9 @@ public final class FanService: @unchecked Sendable {
             let fans = try hardware.fanSnapshots()
             guard !fans.isEmpty else { throw SMCReader.ReaderError.invalidFan }
             if criticalGate.register(temperature, at: now) {
-                // At the 90 °C safety point, maximum fan speed must never wait for slew limiting.
-                try hardware.setFanTargets(stabilizer.forceMaximumTargets(for: fans, at: now))
+                // At the 90 °C safety point every fan heads for maximum on the critical ramp,
+                // which is six times faster than the everyday rise.
+                try hardware.setFanTargets(stabilizer.rampToMaximum(for: fans, at: now))
                 return
             }
             guard let controlTemperature = temperatureAverage.append(temperature, at: now) else { return }
@@ -121,7 +122,7 @@ public final class FanService: @unchecked Sendable {
                 target: target,
                 fans: fans
             )
-            try hardware.setFanTargets(stabilizer.limitTargets(requestedTargets, at: now))
+            try hardware.setFanTargets(stabilizer.limitTargets(requestedTargets, for: fans, at: now))
         }
     }
 

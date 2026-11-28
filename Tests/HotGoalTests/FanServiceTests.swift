@@ -20,6 +20,21 @@ final class FanServiceTests: XCTestCase {
         for _ in 0..<TemperatureAverage.sampleCount { service.reconcile() }
         XCTAssertFalse(hardware.writtenTargets.isEmpty)
     }
+
+    func testCriticalTemperatureRampsFansInsteadOfJumpingToMaximum() throws {
+        let hardware = FakeFanHardware()
+        hardware.temperature = 95
+        let service = FanService(hardware: hardware)
+        try service.setControl(FanControlCodec.encode(.targetTemperature(60))).get()
+
+        // The third consecutive critical sample trips the 90 °C override. The fake fan runs at
+        // 2,000 RPM with a 5,000 RPM maximum, so the first override write must land in between.
+        service.reconcile()
+        service.reconcile()
+        let firstOverrideWrite = try XCTUnwrap(hardware.writtenTargets.last?.first)
+        XCTAssertGreaterThan(firstOverrideWrite, 2000)
+        XCTAssertLessThan(firstOverrideWrite, 5000)
+    }
 }
 
 private final class FakeFanHardware: FanHardware {

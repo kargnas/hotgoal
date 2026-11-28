@@ -27,7 +27,7 @@ SOFTWARE.
 
 ## smctl
 
-Asymmetric RPM slew limiting is adapted from
+Asymmetric slew limiting is adapted from
 [leaperone/smctl](https://github.com/leaperone/smctl).
 
 MIT License
